@@ -1,11 +1,14 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import { Server } from "http";
+import { createServer, type Server } from "http";
 import { getHelmetMiddleware } from "../middlewares/helmet.js";
 import { getCorsOptions } from "../middlewares/corsUtils.js";
 import { EXPRESS_HOST, EXPRESS_PORT } from "../config.js";
+import { attachDotsWebSocket } from "../dots/wsGateway.js";
 import { getStatus } from "./commonRequests.js";
+import { createDotsRouter } from "./dots/dotsRouter.js";
 
+/** Creates the Express application with dots routes and middleware. */
 export function createArcadeServer(): Express {
   const app = express().disable("x-powered-by");
   app.use(getHelmetMiddleware());
@@ -13,12 +16,17 @@ export function createArcadeServer(): Express {
   app.use(cors(getCorsOptions()));
   app.set("trust proxy", 1);
   app.get("/", getStatus);
+  app.use("/dots", createDotsRouter());
   return app;
 }
 
+/** Listens for HTTP and attaches the dots WebSocket server. */
 export function startArcadeServer(): Server {
   const app = createArcadeServer();
-  return app.listen(EXPRESS_PORT, EXPRESS_HOST, () =>
-    console.log(`Admin API listening on http://${EXPRESS_HOST}:${EXPRESS_PORT}`)
+  const server = createServer(app);
+  attachDotsWebSocket(server);
+  server.listen(EXPRESS_PORT, EXPRESS_HOST, () =>
+    console.log(`Dots API listening on http://${EXPRESS_HOST}:${EXPRESS_PORT}`)
   );
+  return server;
 }

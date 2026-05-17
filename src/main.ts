@@ -2,6 +2,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { startArcadeServer } from "./webApi/webServer.js";
 
+/** Starts the HTTP server and WebSocket gateway. */
 function main(): void {
   const fileName = fileURLToPath(import.meta.url);
   const dirName = dirname(fileName);

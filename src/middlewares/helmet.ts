@@ -1,6 +1,7 @@
 import helmet from "helmet";
 import { FRONTEND_URLS } from "../config.js";
 
+/** Returns Helmet middleware with CSP tuned for this API. */
 export function getHelmetMiddleware(): ReturnType<typeof helmet> {
   return helmet({
     contentSecurityPolicy: {

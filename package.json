@@ -6,8 +6,11 @@
   "scripts": {
     "start": "npx tsx watch src/main.ts",
     "build": "rimraf ./build && npx tsc",
+    "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "vercel-build": "echo skip build"
+    "vercel-build": "echo skip build",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
   },
   "repository": {
     "type": "git",
@@ -32,7 +35,8 @@
     "helmet": "^8.1.0",
     "pg": "^8.20.0",
     "qs": "^6.15.1",
-    "serverless-http": "^4.0.0"
+    "serverless-http": "^4.0.0",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
@@ -41,10 +45,12 @@
     "@types/express-session": "^1.19.0",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.8.0",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^62.9.0",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-sonarjs": "^4.0.3",
     "nodemon": "^3.1.14",

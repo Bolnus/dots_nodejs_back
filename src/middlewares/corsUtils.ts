@@ -1,8 +1,9 @@
-import { CorsOptions } from "cors";
+import type { CorsOptions } from "cors";
 import { FRONTEND_URLS } from "../config.js";
 
 let allowedOrigins: string[];
 
+/** Validates the request origin against the configured allow list. */
 function isValidOrigin(
   requestOrigin: string | undefined,
   callback: (err: Error | null, origin?: string | boolean) => void
@@ -24,6 +25,7 @@ function isValidOrigin(
   callback(null, requestOrigin);
 }
 
+/** Returns CORS options for the Express app. */
 export function getCorsOptions(): CorsOptions {
   return {
     origin: isValidOrigin,

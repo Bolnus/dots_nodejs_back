@@ -1,6 +1,7 @@
-import express from "express";
+import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
 
-export function getStatus(req: express.Request, res: express.Response): void {
+/** Health check handler that returns a simple HTML status page. */
+export function getStatus(req: ExpressRequest, res: ExpressResponse): void {
   console.log(`${req.method} | ${req.path}`);
   res.send(
     `<body style="margin: 0;">

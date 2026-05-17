@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DotsRoomStatus {
+  WAITING
+  PLAYING
+  FINISHED
+}
+
+enum DotsRoomMemberRole {
+  PLAYER0
+  PLAYER1
+  VIEWER
+}
+
+model DotsUser {
+  id               String           @id @default(uuid())
+  displayName      String
+  normalizedName   String           @unique
+  sessionTokenHash String
+  lastSeenAt       DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  members          DotsRoomMember[]
+  ownedRooms       DotsRoom[]       @relation("RoomOwner")
+}
+
+model DotsRoom {
+  id                  String           @id @default(uuid())
+  name                String
+  ownerUserId         String
+  owner               DotsUser         @relation("RoomOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  status              DotsRoomStatus   @default(WAITING)
+  isPrivate           Boolean          @default(false)
+  passwordHash        String?
+  rows                Int
+  cols                Int
+  serverState         Json?
+  presence            Json?
+  presenceByUserId    String?
+  lockedPlayer0UserId String?
+  lockedPlayer1UserId String?
+  createdAt           DateTime         @default(now())
+  members             DotsRoomMember[]
+}
+
+model DotsRoomMember {
+  id     String             @id @default(uuid())
+  roomId String
+  userId String
+  role   DotsRoomMemberRole
+  room   DotsRoom           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user   DotsUser           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}

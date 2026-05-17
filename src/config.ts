@@ -36,15 +36,7 @@ function optionalString(name: string, fallback: string): string {
   return optionalTrimmed(name) ?? fallback;
 }
 
-/** Removes trailing `/` characters from a URL-like string. */
-function stripTrailingSlashes(value: string): string {
-  let end = value.length;
-  while (end > 0 && value[end - 1] === "/") {
-    end -= 1;
-  }
-  return value.slice(0, end);
-}
-
+/** Parses allowed frontend origins from the environment. */
 function getEnvFrontendUrls(): string[] {
   try {
     const data = JSON.parse(process.env.FRONTEND_URLS || "") as unknown;
@@ -62,3 +54,5 @@ export const EXPRESS_HOST = optionalString("EXPRESS_HOST", "0.0.0.0");
 export const EXPRESS_PORT = optionalNumber("EXPRESS_PORT", 3030);
 export const DATABASE_CONNECTION_STRING = required("DATABASE_URL");
 export const FRONTEND_URLS = getEnvFrontendUrls();
+export const DOTS_MAX_ACTIVE_ROOMS = optionalNumber("DOTS_MAX_ACTIVE_ROOMS", 30);
+export const DOTS_IDLE_USER_TTL_HOURS = optionalNumber("DOTS_IDLE_USER_TTL_HOURS", 24);

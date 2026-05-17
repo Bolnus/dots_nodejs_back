@@ -9,6 +9,7 @@ import typescriptParser from "@typescript-eslint/parser";
 import eslintPluginImport from "eslint-plugin-import";
 import stylistic from "@stylistic/eslint-plugin";
 import sonarjsPlugin from "eslint-plugin-sonarjs";
+import jsdocPlugin from "eslint-plugin-jsdoc";
 
 export default defineConfig([
   eslintJs.configs.recommended,
@@ -34,7 +35,7 @@ export default defineConfig([
         tsconfigRootDir: import.meta.dirname
       }
     },
-    plugins: { "@stylistic": stylistic, import: eslintPluginImport },
+    plugins: { "@stylistic": stylistic, import: eslintPluginImport, jsdoc: jsdocPlugin },
     settings: { "import/resolver": { typescript: {} } },
     ignores: ["eslint.config.*", "*.json", "node_modules/*"],
     rules: {
