@@ -111,6 +111,8 @@ export default defineConfig([
       "no-shadow": ["warn", { builtinGlobals: true, hoist: "functions", ignoreOnInitialization: false }],
       "prefer-arrow-callback": "off",
       "no-fallthrough": "off",
+      "prefer-promise-reject-errors": "warn",
+      "no-implied-eval": "error",
 
       // Import rules
       "import/order": [
@@ -130,6 +132,19 @@ export default defineConfig([
       "import/no-cycle": "off",
       "import/no-self-import": "warn",
       "import/no-import-module-exports": "warn",
+
+      // JSDOC
+      "jsdoc/require-jsdoc": "warn",
+      "jsdoc/no-types": "warn",
+      "jsdoc/multiline-blocks": [
+        "warn",
+        {
+          noMultilineBlocks: true,
+          minimumLengthForMultiline: 100,
+          allowMultipleTags: false
+        }
+      ],
+      "jsdoc/no-blank-blocks": "warn",
 
       // Prettier
       "prettier/prettier": ["warn"],
@@ -176,6 +191,9 @@ export default defineConfig([
       "sonarjs/no-fallthrough": "off",
       "sonarjs/no-clear-text-protocols": "off",
       "sonarjs/different-types-comparison": "off",
+      "sonarjs/prefer-read-only-props": "warn",
+      "sonarjs/cognitive-complexity": "warn",
+      "sonarjs/no-control-regex": "off",
 
       // TypeScript rules
       "@typescript-eslint/member-ordering": "error",
@@ -205,7 +223,15 @@ export default defineConfig([
       "@typescript-eslint/no-require-imports": "error",
       "@typescript-eslint/consistent-type-definitions": "off",
       "@typescript-eslint/no-inferrable-types": "off",
-      "@typescript-eslint/no-unnecessary-type-assertion": "warn"
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          prefer: "type-imports",
+          fixStyle: "separate-type-imports",
+          disallowTypeAnnotations: true
+        }
+      ]
     }
   }
 ]);
