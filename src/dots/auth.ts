@@ -6,7 +6,7 @@ import { DOTS_IDLE_USER_TTL_HOURS } from "../config.js";
 import { prisma } from "../db/prisma.js";
 import { DotsApiError } from "./errors.js";
 import { hasBlockingMembership } from "./membership.js";
-import type { AuthUser } from "./types.js";
+import type { AuthUser } from "./wireTypes.js";
 
 /** Hashes a bearer token for storage. */
 function hashToken(token: string): string {

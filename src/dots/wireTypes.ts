@@ -1,6 +1,39 @@
+import type { Request as ExpressRequest } from "express";
+
+import type { en } from "../locales/en.js";
 import type { DotsLocalState } from "./localStateWire.js";
 import type { DotsServerGameState } from "./game-synced/types.js";
 import type { PlayerId } from "./game-synced/types.js";
+
+/** Authenticated dots user attached to API requests. */
+export type AuthUser = Readonly<{
+  id: string;
+  displayName: string;
+}>;
+
+/** Express request extended with dots auth and locale. */
+export type DotsRequest = ExpressRequest & {
+  dotsUser?: AuthUser;
+  languageCode?: string;
+};
+
+export type DotsErrorCode = keyof Pick<
+  typeof en,
+  | "dotsNameTaken"
+  | "dotsActiveRoomBlocked"
+  | "dotsMaxRooms"
+  | "dotsInvalidGrid"
+  | "dotsRoomNotFound"
+  | "dotsWrongPassword"
+  | "dotsOwnerOnly"
+  | "dotsSettingsLocked"
+  | "dotsNeedTwoPlayers"
+  | "dotsRoomFull"
+  | "dotsPlayingLocked"
+  | "dotsUnauthorized"
+  | "dotsNotInGame"
+  | "dotsInternal"
+>;
 
 export type DotsRoomStatus = "waiting" | "playing" | "finished";
 

@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request as ExpressRequest, type Respons
 
 import { authenticateBearer } from "../auth.js";
 import { DotsApiError, sendDotsError } from "../errors.js";
-import type { DotsRequest } from "../types.js";
+import type { DotsRequest } from "../wireTypes.js";
 import { getRooms } from "./rooms/getRooms.js";
 import { postRoom } from "./rooms/postRoom.js";
 import { postCommit } from "./rooms/roomId/actions/commit/postCommit.js";

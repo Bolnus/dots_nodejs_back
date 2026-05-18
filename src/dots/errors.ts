@@ -1,25 +1,7 @@
 import type { Response as ExpressResponse } from "express";
 
 import { formatMessage } from "../locales/i18n.js";
-import type { en } from "../locales/en.js";
-
-export type DotsErrorCode = keyof Pick<
-  typeof en,
-  | "dotsNameTaken"
-  | "dotsActiveRoomBlocked"
-  | "dotsMaxRooms"
-  | "dotsInvalidGrid"
-  | "dotsRoomNotFound"
-  | "dotsWrongPassword"
-  | "dotsOwnerOnly"
-  | "dotsSettingsLocked"
-  | "dotsNeedTwoPlayers"
-  | "dotsRoomFull"
-  | "dotsPlayingLocked"
-  | "dotsUnauthorized"
-  | "dotsNotInGame"
-  | "dotsInternal"
->;
+import type { DotsErrorCode } from "./wireTypes.js";
 
 export class DotsApiError extends Error {
   readonly status: number;

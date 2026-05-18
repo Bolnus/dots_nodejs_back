@@ -1,7 +1,18 @@
 import type { Response as ExpressResponse } from "express";
 
-import { listRooms } from "../../roomService.js";
-import type { DotsRequest } from "../../types.js";
+import { prisma } from "../../../db/prisma.js";
+import { roomWithMembers } from "../../membershipConsts.js";
+import { mapRoomToSummary } from "../../roomMapper.js";
+import type { DotsRequest, DotsRoomSummary } from "../../wireTypes.js";
+
+/** Returns summaries for all rooms. */
+async function listRooms(): Promise<DotsRoomSummary[]> {
+  const rooms = await prisma.dotsRoom.findMany({
+    orderBy: { createdAt: "desc" },
+    ...roomWithMembers
+  });
+  return rooms.map((room) => mapRoomToSummary(room));
+}
 
 /** Lists all dots rooms. */
 export async function getRooms(_req: DotsRequest, res: ExpressResponse): Promise<void> {
