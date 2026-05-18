@@ -1,20 +1,20 @@
 import { Router, type NextFunction, type Request as ExpressRequest, type Response as ExpressResponse } from "express";
 
-import { authenticateBearer } from "../../dots/auth.js";
-import { DotsApiError, sendDotsError } from "../../dots/errors.js";
-import type { DotsRequest } from "../../dots/types.js";
-import { getRooms } from "../../dots/rooms/getRooms.js";
-import { postRoom } from "../../dots/rooms/postRoom.js";
-import { postCommit } from "../../dots/rooms/roomId/actions/commit/postCommit.js";
-import { getRoomById } from "../../dots/rooms/roomId/getRoom.js";
-import { postJoin } from "../../dots/rooms/roomId/join/postJoin.js";
-import { postLeave } from "../../dots/rooms/roomId/leave/postLeave.js";
-import { patchRoomById } from "../../dots/rooms/roomId/patchRoom.js";
-import { postStart } from "../../dots/rooms/roomId/start/postStart.js";
-import { deleteMe } from "../../dots/sessions/me/deleteMe.js";
-import { patchMe } from "../../dots/sessions/me/patchMe.js";
-import { postRegister } from "../../dots/sessions/register/postRegister.js";
-import { postHeartbeat } from "../../dots/sessions/heartbeat/postHeartbeat.js";
+import { authenticateBearer } from "../auth.js";
+import { DotsApiError, sendDotsError } from "../errors.js";
+import type { DotsRequest } from "../types.js";
+import { getRooms } from "./rooms/getRooms.js";
+import { postRoom } from "./rooms/postRoom.js";
+import { postCommit } from "./rooms/roomId/actions/commit/postCommit.js";
+import { getRoomById } from "./rooms/roomId/getRoom.js";
+import { postJoin } from "./rooms/roomId/join/postJoin.js";
+import { postLeave } from "./rooms/roomId/leave/postLeave.js";
+import { patchRoomById } from "./rooms/roomId/patchRoom.js";
+import { postStart } from "./rooms/roomId/start/postStart.js";
+import { deleteMe } from "./sessions/me/deleteMe.js";
+import { patchMe } from "./sessions/me/patchMe.js";
+import { postRegister } from "./sessions/register/postRegister.js";
+import { postHeartbeat } from "./sessions/heartbeat/postHeartbeat.js";
 
 /** Parses the preferred locale from the Accept-Language header. */
 function languageFromRequest(req: ExpressRequest): string | undefined {

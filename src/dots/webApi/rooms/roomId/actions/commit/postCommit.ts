@@ -1,10 +1,10 @@
 import type { Response as ExpressResponse } from "express";
 
 import type { DotsServerAction } from "../../../../../game-synced/types.js";
-import { commitAction } from "../../../../roomService.js";
-import { DotsApiError, sendDotsError } from "../../../../errors.js";
-import { roomIdParam } from "../../../../http/dotsRequest.js";
-import type { DotsRequest } from "../../../../types.js";
+import { commitAction } from "../../../../../roomService.js";
+import { DotsApiError, sendDotsError } from "../../../../../errors.js";
+import { roomIdParam } from "../../../../../dotsRequest.js";
+import type { DotsRequest } from "../../../../../types.js";
 
 /** Commits a game action when hashes match the server state. */
 export async function postCommit(req: DotsRequest, res: ExpressResponse): Promise<void> {

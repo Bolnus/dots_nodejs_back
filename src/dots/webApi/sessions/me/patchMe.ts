@@ -1,8 +1,8 @@
 import type { Response as ExpressResponse } from "express";
 
-import { renameUser } from "../../roomService.js";
-import { DotsApiError, sendDotsError } from "../../errors.js";
-import type { DotsRequest } from "../../types.js";
+import { renameUser } from "../../../roomService.js";
+import { DotsApiError, sendDotsError } from "../../../errors.js";
+import type { DotsRequest } from "../../../types.js";
 
 /** Updates the authenticated user's display name. */
 export async function patchMe(req: DotsRequest, res: ExpressResponse): Promise<void> {

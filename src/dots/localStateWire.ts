@@ -1,4 +1,4 @@
-import type { GridPoint } from "../game-synced/types.js";
+import type { GridPoint } from "./game-synced/types.js";
 
 export type DotsLocalMode = "play" | "drawPolygon";
 

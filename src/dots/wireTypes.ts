@@ -1,6 +1,6 @@
 import type { DotsLocalState } from "./localStateWire.js";
-import type { DotsServerGameState } from "../game-synced/types.js";
-import type { PlayerId } from "../game-synced/types.js";
+import type { DotsServerGameState } from "./game-synced/types.js";
+import type { PlayerId } from "./game-synced/types.js";
 
 export type DotsRoomStatus = "waiting" | "playing" | "finished";
 

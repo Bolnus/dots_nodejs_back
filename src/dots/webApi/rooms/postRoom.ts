@@ -1,8 +1,8 @@
 import type { Response as ExpressResponse } from "express";
 
-import { createRoom } from "../roomService.js";
-import { DotsApiError, sendDotsError } from "../errors.js";
-import type { DotsRequest } from "../types.js";
+import { createRoom } from "../../roomService.js";
+import { DotsApiError, sendDotsError } from "../../errors.js";
+import type { DotsRequest } from "../../types.js";
 
 /** Creates a new dots room owned by the authenticated user. */
 export async function postRoom(req: DotsRequest, res: ExpressResponse): Promise<void> {

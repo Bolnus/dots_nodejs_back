@@ -1,7 +1,7 @@
 import { DotsRoomMemberRole, DotsRoomStatus } from "@prisma/client";
 
-import type { DotsServerGameState } from "../game-synced/types.js";
-import type { PlayerId } from "../game-synced/types.js";
+import type { DotsServerGameState } from "./game-synced/types.js";
+import type { PlayerId } from "./game-synced/types.js";
 import { MAX_PLAYERS } from "./consts.js";
 import type { DotsLocalState } from "./localStateWire.js";
 import type { RoomWithMembers } from "./membershipConsts.js";

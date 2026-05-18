@@ -1,12 +1,12 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import { createServer, type Server } from "http";
-import { getHelmetMiddleware } from "../middlewares/helmet.js";
-import { getCorsOptions } from "../middlewares/corsUtils.js";
-import { EXPRESS_HOST, EXPRESS_PORT } from "../config.js";
-import { attachDotsWebSocket } from "../dots/wsGateway.js";
-import { getStatus } from "./commonRequests.js";
-import { createDotsRouter } from "./dots/dotsRouter.js";
+import { getHelmetMiddleware } from "./middlewares/helmet.js";
+import { getCorsOptions } from "./middlewares/corsUtils.js";
+import { EXPRESS_HOST, EXPRESS_PORT } from "./config.js";
+import { attachDotsWebSocket } from "./dots/wsGateway.js";
+import { getStatus } from "./commonWebApi/commonRequests.js";
+import { createDotsRouter } from "./dots/webApi/dotsRouter.js";
 
 /** Creates the Express application with dots routes and middleware. */
 export function createArcadeServer(): Express {

@@ -1,6 +1,6 @@
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import { startArcadeServer } from "./webApi/webServer.js";
+import { startArcadeServer } from "./webServer.js";
 
 /** Starts the HTTP server and WebSocket gateway. */
 function main(): void {
