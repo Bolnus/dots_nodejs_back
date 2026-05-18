@@ -4,12 +4,9 @@ import type { DotsUser } from "@prisma/client";
 
 import { DOTS_IDLE_USER_TTL_HOURS } from "../config.js";
 import { prisma } from "../db/prisma.js";
+import { DotsApiError } from "./errors.js";
 import { hasBlockingMembership } from "./membership.js";
-
-export type AuthUser = Readonly<{
-  id: string;
-  displayName: string;
-}>;
+import type { AuthUser } from "./types.js";
 
 /** Hashes a bearer token for storage. */
 function hashToken(token: string): string {
@@ -66,7 +63,7 @@ export async function authenticateBearer(token: string | undefined): Promise<Aut
 export async function registerUser(displayName: string): Promise<{ user: AuthUser; token: string }> {
   const trimmed = displayName.trim();
   if (!trimmed) {
-    throw new Error("empty name");
+    throw new DotsApiError(400, "dotsInternal");
   }
   const normalizedName = normalizeDisplayName(trimmed);
   const token = createSessionToken();
@@ -76,7 +73,7 @@ export async function registerUser(displayName: string): Promise<{ user: AuthUse
   if (existing) {
     const blocked = await hasBlockingMembership(existing.id);
     if (blocked) {
-      throw new Error("blocked");
+      throw new DotsApiError(409, "dotsActiveRoomBlocked");
     }
     const user = await prisma.dotsUser.update({
       where: { id: existing.id },

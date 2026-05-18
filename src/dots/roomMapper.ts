@@ -1,12 +1,17 @@
 import { DotsRoomMemberRole, DotsRoomStatus } from "@prisma/client";
 
-import type { DotsServerGameState } from "../game-synced/serverState.js";
+import type { DotsServerGameState } from "../game-synced/types.js";
 import type { PlayerId } from "../game-synced/types.js";
+import { MAX_PLAYERS } from "./consts.js";
 import type { DotsLocalState } from "./localStateWire.js";
-import type { RoomWithMembers } from "./membership.js";
-import type { DotsRoomDetail, DotsRoomStatus as WireStatus, DotsRoomSummary } from "./wireTypes.js";
-
-const MAX_PLAYERS = 2;
+import type { RoomWithMembers } from "./membershipConsts.js";
+import type {
+  DotsOnlineUser,
+  DotsRoomDetail,
+  DotsRoomPlayer,
+  DotsRoomStatus as WireStatus,
+  DotsRoomSummary
+} from "./wireTypes.js";
 
 /** Maps a Prisma room status to the wire enum. */
 function toWireStatus(status: DotsRoomStatus): WireStatus {
@@ -35,8 +40,8 @@ function roleToSlot(role: DotsRoomMemberRole): PlayerId | null {
 
 /** Maps a Prisma room row to the full wire detail shape. */
 export function mapRoomToDetail(room: RoomWithMembers): DotsRoomDetail {
-  const players: { slot: PlayerId; user: { userId: string; displayName: string } }[] = [];
-  const viewers: { userId: string; displayName: string }[] = [];
+  const players: DotsRoomPlayer[] = [];
+  const viewers: DotsOnlineUser[] = [];
   for (const member of room.members) {
     const slot = roleToSlot(member.role);
     const user = { userId: member.user.id, displayName: member.user.displayName };

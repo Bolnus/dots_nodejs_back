@@ -3,21 +3,20 @@ import { DotsRoomMemberRole, DotsRoomStatus, Prisma } from "@prisma/client";
 import { DOTS_MAX_ACTIVE_ROOMS } from "../config.js";
 import { prisma } from "../db/prisma.js";
 import { currentServerPlacingPlayer, reduceServer } from "../game-synced/serverReducer.js";
-import type { DotsServerAction } from "../game-synced/serverReducer.js";
 import { initialServerStateFromConfig } from "../game-synced/serverState.js";
-import type { DotsServerGameState } from "../game-synced/serverState.js";
+import type { DotsServerAction, DotsServerGameState } from "../game-synced/types.js";
 import { DOTS_GRID_MAX, DOTS_GRID_MIN } from "../game-synced/consts.js";
 import { isValidGridDimension } from "../game-synced/logic.js";
 import type { PlayerId } from "../game-synced/types.js";
-import { assertNotBlocked, hasBlockingMembership, roomWithMembers, type RoomWithMembers } from "./membership.js";
+import { assertNotBlocked } from "./membership.js";
+import { roomWithMembers, type RoomWithMembers } from "./membershipConsts.js";
+import { MAX_PLAYERS } from "./consts.js";
 import { mapRoomToDetail, mapRoomToSummary } from "./roomMapper.js";
 import { DotsApiError } from "./errors.js";
 import { hashPassword, verifyPassword } from "./auth.js";
 import type { DotsLocalState } from "./localStateWire.js";
 import type { CommitActionResult, DotsBoardConfig, DotsRoomDetail, DotsRoomSummary } from "./wireTypes.js";
 import { broadcastRoomEvent } from "./events.js";
-
-const MAX_PLAYERS = 2;
 
 /** Loads a room with members or throws when missing. */
 async function loadRoom(roomId: string): Promise<RoomWithMembers> {
@@ -380,5 +379,3 @@ export async function dropSession(userId: string): Promise<void> {
   await assertNotBlocked(userId);
   await prisma.dotsUser.delete({ where: { id: userId } });
 }
-
-export { hasBlockingMembership };

@@ -1,13 +1,6 @@
 import { applyCapture, computeCapture, computeScoresFromGridAndPolygons } from "./logic.js";
 import { computeServerStateHash } from "./serverState.js";
-import type { DotsServerGameState } from "./serverState.js";
-import type { CellState, FilledPolygon, GridPoint, PlayerId } from "./types.js";
-
-/** Discriminated union of committed actions accepted by the server reducer. */
-export type DotsServerAction =
-  | Readonly<{ type: "COMMIT_PLACEMENT"; point: GridPoint; by: PlayerId }>
-  | Readonly<{ type: "COMMIT_CAPTURE"; ring: GridPoint[]; by: PlayerId }>
-  | Readonly<{ type: "SURRENDER"; by: PlayerId }>;
+import type { CellState, DotsServerAction, DotsServerGameState, FilledPolygon, GridPoint, PlayerId } from "./types.js";
 
 /** Player whose turn it is to place a dot next, based on parity of committed placements. */
 export function currentServerPlacingPlayer(state: DotsServerGameState): PlayerId {

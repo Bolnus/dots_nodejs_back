@@ -1,9 +1,6 @@
-import { DotsRoomMemberRole, DotsRoomStatus, type Prisma } from "@prisma/client";
-
 import { prisma } from "../db/prisma.js";
-
-const ACTIVE_STATUSES: DotsRoomStatus[] = [DotsRoomStatus.WAITING, DotsRoomStatus.PLAYING];
-const PLAYER_ROLES: DotsRoomMemberRole[] = [DotsRoomMemberRole.PLAYER0, DotsRoomMemberRole.PLAYER1];
+import { DotsApiError } from "./errors.js";
+import { ACTIVE_STATUSES, PLAYER_ROLES } from "./membershipConsts.js";
 
 /** True when the user owns or plays in a waiting/playing room. */
 export async function hasBlockingMembership(userId: string): Promise<boolean> {
@@ -26,15 +23,6 @@ export async function hasBlockingMembership(userId: string): Promise<boolean> {
 /** Throws when the user is blocked by an active room membership. */
 export async function assertNotBlocked(userId: string): Promise<void> {
   if (await hasBlockingMembership(userId)) {
-    throw new Error("blocked");
+    throw new DotsApiError(409, "dotsActiveRoomBlocked");
   }
 }
-
-export const roomWithMembers = {
-  include: {
-    members: { include: { user: { select: { id: true, displayName: true } } } },
-    owner: { select: { id: true, displayName: true } }
-  }
-} satisfies Prisma.DotsRoomDefaultArgs;
-
-export type RoomWithMembers = Prisma.DotsRoomGetPayload<typeof roomWithMembers>;

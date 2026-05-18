@@ -18,6 +18,8 @@ type InboundMessage = Readonly<{
   patch?: unknown;
 }>;
 
+type MessageQueue = { processing: Promise<void> };
+
 const roomChannels = new Map<string, Set<WsSocket>>();
 const clientState = new WeakMap<WsSocket, ClientState>();
 
@@ -107,28 +109,36 @@ async function handleClientMessage(ws: WsSocket, raw: RawData): Promise<void> {
   }
 }
 
+/** Serializes WebSocket message handling per connection. */
+function enqueueWebSocketMessage(queue: MessageQueue, ws: WsSocket, raw: RawData): void {
+  queue.processing = queue.processing
+    .then(() => handleClientMessage(ws, raw))
+    .catch(() => {
+      /* ignore malformed messages */
+    });
+}
+
+/** Cleans up room subscription when a WebSocket closes. */
+function onWebSocketClose(ws: WsSocket): void {
+  const state = clientState.get(ws);
+  if (state?.roomId) {
+    removeFromRoom(state.roomId, ws);
+  }
+}
+
+/** Wires message and close handlers for a new WebSocket client. */
+function onWebSocketConnection(ws: WsSocket): void {
+  clientState.set(ws, { userId: "", roomId: null });
+  const queue: MessageQueue = { processing: Promise.resolve() };
+
+  ws.on("message", (raw) => enqueueWebSocketMessage(queue, ws, raw));
+  ws.on("close", () => onWebSocketClose(ws));
+}
+
 /** Attaches the dots WebSocket gateway to the HTTP server. */
 export function attachDotsWebSocket(server: HttpServer): void {
   setRoomEventBroadcaster(deliverRoomEvent);
   const wss = new WebSocketServer({ server, path: "/dots/ws" });
 
-  wss.on("connection", (ws) => {
-    clientState.set(ws, { userId: "", roomId: null });
-    let processing = Promise.resolve();
-
-    ws.on("message", (raw) => {
-      processing = processing
-        .then(() => handleClientMessage(ws, raw))
-        .catch(() => {
-          /* ignore malformed messages */
-        });
-    });
-
-    ws.on("close", () => {
-      const state = clientState.get(ws);
-      if (state?.roomId) {
-        removeFromRoom(state.roomId, ws);
-      }
-    });
-  });
+  wss.on("connection", (ws) => onWebSocketConnection(ws));
 }

@@ -1,5 +1,5 @@
 import type { DotsLocalState } from "./localStateWire.js";
-import type { DotsServerGameState } from "../game-synced/serverState.js";
+import type { DotsServerGameState } from "../game-synced/types.js";
 import type { PlayerId } from "../game-synced/types.js";
 
 export type DotsRoomStatus = "waiting" | "playing" | "finished";
@@ -7,6 +7,8 @@ export type DotsRoomStatus = "waiting" | "playing" | "finished";
 export type DotsBoardConfig = Readonly<{ rows: number; cols: number }>;
 
 export type DotsOnlineUser = Readonly<{ userId: string; displayName: string }>;
+
+export type DotsRoomPlayer = Readonly<{ slot: PlayerId; user: DotsOnlineUser }>;
 
 export type DotsRoomSummary = Readonly<{
   id: string;
@@ -30,7 +32,7 @@ export type DotsRoomDetail = Readonly<{
   isPrivate: boolean;
   hasPassword: boolean;
   status: DotsRoomStatus;
-  players: readonly { slot: PlayerId; user: DotsOnlineUser }[];
+  players: readonly DotsRoomPlayer[];
   viewers: readonly DotsOnlineUser[];
   config: DotsBoardConfig;
   serverState: DotsServerGameState | null;

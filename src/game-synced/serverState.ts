@@ -1,27 +1,6 @@
 import { createEmptyGrid } from "./logic.js";
-import type { CellState, FilledPolygon, PlayerId } from "./types.js";
+import type { CellState, DotsBoardConfig, DotsServerGameState } from "./types.js";
 import { fnv1a32Hex } from "./fnv1a.js";
-import type { DotsBoardConfig } from "./types.js";
-
-/** Authoritative server-side play mode (no client-only draw mode). */
-export type DotsServerMode = "play" | "ended";
-
-/** Authoritative dots game state owned by the server (excludes any in-flight local UI). */
-export type DotsServerGameState = Readonly<{
-  config: DotsBoardConfig;
-  cells: CellState[][];
-  /** Number of committed dot placements (drives whose turn is next). */
-  dotsPlacedCount: number;
-  scores: Readonly<Record<PlayerId, number>>;
-  mode: DotsServerMode;
-  winner: PlayerId | null;
-  surrenderedBy: PlayerId | null;
-  polygons: FilledPolygon[];
-  /** Monotonic counter; clients drop out-of-order deltas. */
-  version: number;
-  /** Deterministic checksum of the canonical projection of this state. */
-  hash: string;
-}>;
 
 /** Canonical, stable string projection of a server state used for the checksum. */
 export function canonicalizeServerState(state: Omit<DotsServerGameState, "hash">): string {

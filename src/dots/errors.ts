@@ -34,15 +34,10 @@ export class DotsApiError extends Error {
   }
 }
 
-/** Formats a dots API error for the request locale. */
-export function messageForError(languageCode: string | undefined, error: DotsApiError): string {
-  return formatMessage(languageCode, error.code, error.vars);
-}
-
 /** Sends a localized JSON error response. */
 export function sendDotsError(res: ExpressResponse, languageCode: string | undefined, error: DotsApiError): void {
   res.status(error.status).json({
     code: error.code,
-    messageLocal: messageForError(languageCode, error)
+    messageLocal: formatMessage(languageCode, error.code, error.vars)
   });
 }
