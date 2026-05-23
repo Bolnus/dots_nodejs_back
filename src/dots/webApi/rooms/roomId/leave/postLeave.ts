@@ -8,15 +8,27 @@ import { loadRoom, saveAndBroadcast } from "../../../../roomService.js";
 import { broadcastRoomEvent } from "../../../../events.js";
 import type { DotsRequest } from "../../../../wireTypes.js";
 
-/** Removes a user from a room; owners delete the room. */
+/** Removes a user from a room; owners delete waiting rooms. Playing rooms are left unchanged. */
 async function leaveRoom(userId: string, roomId: string): Promise<void> {
   const room = await loadRoom(roomId);
+
+  if (room.status === DotsRoomStatus.PLAYING) {
+    return;
+  }
+
+  if (room.status === DotsRoomStatus.FINISHED) {
+    await prisma.dotsRoomMember.deleteMany({ where: { roomId, userId } });
+    await saveAndBroadcast(roomId, {}, "STATE_DELTA");
+    return;
+  }
+
   if (room.ownerUserId === userId) {
     const snapshot = mapRoomToDetail({ ...room, status: DotsRoomStatus.FINISHED });
     await prisma.dotsRoom.delete({ where: { id: roomId } });
     broadcastRoomEvent(roomId, { type: "STATE_DELTA", room: snapshot });
     return;
   }
+
   await prisma.dotsRoomMember.deleteMany({ where: { roomId, userId } });
   await saveAndBroadcast(roomId, {}, "STATE_DELTA");
 }

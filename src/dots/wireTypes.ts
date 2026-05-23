@@ -58,6 +58,20 @@ export type DotsRoomSummary = Readonly<{
   createdAtMs: number;
 }>;
 
+export type DotsLockedPlayers = Readonly<{
+  player0: string | null;
+  player1: string | null;
+}>;
+
+export type DotsSessionActiveRoom = Readonly<{
+  id: string;
+  status: DotsRoomStatus;
+}>;
+
+export type HeartbeatResult = Readonly<{
+  activeRoom: DotsSessionActiveRoom | null;
+}>;
+
 export type DotsRoomDetail = Readonly<{
   id: string;
   name: string;
@@ -71,6 +85,8 @@ export type DotsRoomDetail = Readonly<{
   serverState: DotsServerGameState | null;
   presence: DotsLocalState | null;
   presenceBy: string | null;
+  lockedPlayers: DotsLockedPlayers;
+  connectedUserIds: readonly string[];
   createdAtMs: number;
 }>;
 

@@ -37,6 +37,12 @@ export function validateBoard(config: DotsBoardConfig): void {
 
 /** Returns the player slot for a user in the room, if any. */
 function findPlayerSlot(room: RoomWithMembers, userId: string): PlayerId | null {
+  if (userId === room.lockedPlayer0UserId) {
+    return "player0";
+  }
+  if (userId === room.lockedPlayer1UserId) {
+    return "player1";
+  }
   for (const member of room.members) {
     if (member.userId !== userId) {
       continue;
@@ -90,6 +96,11 @@ export async function saveAndBroadcast(
 /** Returns full detail for one room. */
 export async function getRoom(roomId: string): Promise<DotsRoomDetail> {
   return mapRoomToDetail(await loadRoom(roomId));
+}
+
+/** Broadcasts a connection-only update so clients refresh `connectedUserIds`. */
+export async function broadcastConnectionUpdate(roomId: string): Promise<void> {
+  await saveAndBroadcast(roomId, {}, "STATE_DELTA");
 }
 
 /** Stores and broadcasts ephemeral in-flight UI state. */

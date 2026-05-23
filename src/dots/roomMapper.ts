@@ -5,6 +5,7 @@ import type { PlayerId } from "./game-synced/types.js";
 import { MAX_PLAYERS } from "./consts.js";
 import type { DotsLocalState } from "./localStateWire.js";
 import type { RoomWithMembers } from "./membershipConsts.js";
+import { getConnectedUserIds } from "./roomConnections.js";
 import type {
   DotsOnlineUser,
   DotsRoomDetail,
@@ -66,6 +67,11 @@ export function mapRoomToDetail(room: RoomWithMembers): DotsRoomDetail {
     serverState: room.serverState as DotsServerGameState | null,
     presence: room.presence as DotsLocalState | null,
     presenceBy: room.presenceByUserId,
+    lockedPlayers: {
+      player0: room.lockedPlayer0UserId,
+      player1: room.lockedPlayer1UserId
+    },
+    connectedUserIds: getConnectedUserIds(room.id),
     createdAtMs: room.createdAt.getTime()
   };
 }

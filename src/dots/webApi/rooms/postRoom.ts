@@ -22,6 +22,14 @@ async function assertActiveRoomCap(): Promise<void> {
   }
 }
 
+/** Deletes rooms older than one day before creating a new room. */
+async function purgeOldRooms(): Promise<void> {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await prisma.dotsRoom.deleteMany({
+    where: { createdAt: { lt: oneDayAgo } }
+  });
+}
+
 /** Creates a new waiting room owned by the authenticated user. */
 async function createRoom(
   userId: string,
@@ -29,6 +37,7 @@ async function createRoom(
 ): Promise<DotsRoomDetail> {
   await assertNotBlocked(userId);
   await assertActiveRoomCap();
+  await purgeOldRooms();
   validateBoard(body.config);
 
   const passwordHash = body.isPrivate && body.password && body.password.length > 0 ? hashPassword(body.password) : null;

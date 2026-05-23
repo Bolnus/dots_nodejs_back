@@ -6,6 +6,7 @@ import { verifyPassword } from "../../../../auth.js";
 import { DotsApiError } from "../../../../errors.js";
 import { roomIdParam } from "../../../../dotsRequest.js";
 import { MAX_PLAYERS } from "../../../../consts.js";
+import { ensureLockedPlayerMembership, lockedPlayerRole } from "../../../../membership.js";
 import type { RoomWithMembers } from "../../../../membershipConsts.js";
 import { loadRoom, saveAndBroadcast } from "../../../../roomService.js";
 import type { DotsRequest, DotsRoomDetail } from "../../../../wireTypes.js";
@@ -18,6 +19,11 @@ async function addNewRoomMember(
   asViewer: boolean | undefined
 ): Promise<void> {
   if (room.status === DotsRoomStatus.PLAYING) {
+    const lockedRole = lockedPlayerRole(room, userId);
+    if (lockedRole) {
+      await prisma.dotsRoomMember.create({ data: { roomId, userId, role: lockedRole } });
+      return;
+    }
     if (asViewer !== true) {
       throw new DotsApiError(409, "dotsPlayingLocked");
     }
@@ -59,6 +65,8 @@ async function joinRoom(
   const already = room.members.some((member) => member.userId === userId);
   if (!already) {
     await addNewRoomMember(room, roomId, userId, body.asViewer);
+  } else {
+    await ensureLockedPlayerMembership(room, roomId, userId);
   }
 
   return saveAndBroadcast(roomId, {}, "STATE_DELTA");

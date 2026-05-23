@@ -4,7 +4,8 @@ import type { Server as HttpServer } from "node:http";
 import type { DotsRoomEvent } from "./wireTypes.js";
 import { authenticateBearer } from "./auth.js";
 import { setRoomEventBroadcaster } from "./events.js";
-import { applyEphemeral, getRoom } from "./roomService.js";
+import { applyEphemeral, broadcastConnectionUpdate, getRoom } from "./roomService.js";
+import { trackUserConnected, untrackUserConnected } from "./roomConnections.js";
 
 type ClientState = Readonly<{
   userId: string;
@@ -70,6 +71,15 @@ function messageToText(raw: RawData): string {
   return Buffer.concat(raw).toString("utf8");
 }
 
+/** Notifies room subscribers when the connected-user set changes. */
+async function notifyConnectionChange(roomId: string): Promise<void> {
+  try {
+    await broadcastConnectionUpdate(roomId);
+  } catch {
+    /* room may have been deleted */
+  }
+}
+
 /** Handles one inbound WebSocket message (AUTH / SUBSCRIBE / PRESENCE). */
 async function handleClientMessage(ws: WsSocket, raw: RawData): Promise<void> {
   const text = messageToText(raw);
@@ -96,11 +106,15 @@ async function handleClientMessage(ws: WsSocket, raw: RawData): Promise<void> {
   if (msg.type === "SUBSCRIBE" && msg.roomId) {
     if (state.roomId) {
       removeFromRoom(state.roomId, ws);
+      untrackUserConnected(state.roomId, state.userId);
+      void notifyConnectionChange(state.roomId);
     }
     addToRoom(msg.roomId, ws);
+    trackUserConnected(msg.roomId, state.userId);
     clientState.set(ws, { ...state, roomId: msg.roomId });
     const room = await getRoom(msg.roomId);
     ws.send(JSON.stringify({ type: "ROOM_STATE", room } satisfies DotsRoomEvent));
+    void notifyConnectionChange(msg.roomId);
     return;
   }
 
@@ -121,8 +135,10 @@ function enqueueWebSocketMessage(queue: MessageQueue, ws: WsSocket, raw: RawData
 /** Cleans up room subscription when a WebSocket closes. */
 function onWebSocketClose(ws: WsSocket): void {
   const state = clientState.get(ws);
-  if (state?.roomId) {
+  if (state?.roomId && state.userId) {
     removeFromRoom(state.roomId, ws);
+    untrackUserConnected(state.roomId, state.userId);
+    void notifyConnectionChange(state.roomId);
   }
 }
 

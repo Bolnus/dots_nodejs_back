@@ -7,6 +7,7 @@ import type { RoomWithMembers } from "../../../../../membershipConsts.js";
 import { mapRoomToDetail } from "../../../../../roomMapper.js";
 import { DotsApiError, sendDotsError } from "../../../../../errors.js";
 import { roomIdParam } from "../../../../../dotsRequest.js";
+import { releaseLockedPlayerMemberships } from "../../../../../membership.js";
 import { isActingPlayer, loadRoom, saveAndBroadcast } from "../../../../../roomService.js";
 import type { CommitActionResult, DotsRequest } from "../../../../../wireTypes.js";
 
@@ -61,6 +62,10 @@ async function commitAction(
     },
     "STATE_DELTA"
   );
+  if (roomStatus === DotsRoomStatus.FINISHED) {
+    await releaseLockedPlayerMemberships(room, roomId);
+    await saveAndBroadcast(roomId, {}, "STATE_DELTA");
+  }
   return { status: "ok" };
 }
 
