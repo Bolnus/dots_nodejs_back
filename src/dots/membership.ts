@@ -70,18 +70,7 @@ export async function findActivePlayingRoom(userId: string): Promise<DotsSession
   if (asLocked) {
     return { id: asLocked.id, status: "playing" };
   }
-  const asMember = await prisma.dotsRoomMember.findFirst({
-    where: {
-      userId,
-      role: { in: PLAYER_ROLES },
-      room: { status: DotsRoomStatus.PLAYING }
-    },
-    select: { room: { select: { id: true, status: true } } }
-  });
-  if (!asMember) {
-    return null;
-  }
-  return { id: asMember.room.id, status: "playing" };
+  return null;
 }
 
 /** True when the user owns or plays in a waiting/playing room. */
