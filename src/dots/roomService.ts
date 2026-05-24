@@ -2,7 +2,7 @@ import { DotsRoomMemberRole, DotsRoomStatus } from "@prisma/client";
 
 import { prisma } from "../db/prisma.js";
 import { currentServerPlacingPlayer } from "./game-synced/serverReducer.js";
-import type { DotsServerGameState } from "./game-synced/types.js";
+import type { DotsServerAction, DotsServerGameState } from "./game-synced/types.js";
 import { DOTS_GRID_MAX, DOTS_GRID_MIN } from "./game-synced/consts.js";
 import { isValidGridDimension } from "./game-synced/logic.js";
 import type { PlayerId } from "./game-synced/types.js";
@@ -55,6 +55,26 @@ function findPlayerSlot(room: RoomWithMembers, userId: string): PlayerId | null 
     }
   }
   return null;
+}
+
+/** True when the user is one of the locked players in an active game. */
+export function isLockedPlayer(room: RoomWithMembers, userId: string): boolean {
+  if (room.status !== DotsRoomStatus.PLAYING) {
+    return false;
+  }
+  return userId === room.lockedPlayer0UserId || userId === room.lockedPlayer1UserId;
+}
+
+/** True when the user may commit the given action (turn-gated except for surrender). */
+export function canCommitAction(room: RoomWithMembers, userId: string, action: DotsServerAction): boolean {
+  if (!isLockedPlayer(room, userId)) {
+    return false;
+  }
+  if (action.type === "SURRENDER") {
+    const slot = findPlayerSlot(room, userId);
+    return slot !== null && action.by === slot;
+  }
+  return isActingPlayer(room, userId);
 }
 
 /** True when it is this user's turn to commit or send presence. */

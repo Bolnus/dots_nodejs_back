@@ -3,21 +3,12 @@ import type { Response as ExpressResponse } from "express";
 
 import { reduceServer } from "../../../../../game-synced/serverReducer.js";
 import type { DotsServerAction, DotsServerGameState } from "../../../../../game-synced/types.js";
-import type { RoomWithMembers } from "../../../../../membershipConsts.js";
 import { mapRoomToDetail } from "../../../../../roomMapper.js";
 import { DotsApiError, sendDotsError } from "../../../../../errors.js";
 import { roomIdParam } from "../../../../../dotsRequest.js";
 import { releaseLockedPlayerMemberships } from "../../../../../membership.js";
-import { isActingPlayer, loadRoom, saveAndBroadcast } from "../../../../../roomService.js";
+import { canCommitAction, loadRoom, saveAndBroadcast } from "../../../../../roomService.js";
 import type { CommitActionResult, DotsRequest } from "../../../../../wireTypes.js";
-
-/** True when the user is one of the locked players in an active game. */
-function isLockedActingPlayer(room: RoomWithMembers, userId: string): boolean {
-  if (room.status !== DotsRoomStatus.PLAYING) {
-    return false;
-  }
-  return userId === room.lockedPlayer0UserId || userId === room.lockedPlayer1UserId;
-}
 
 /** Applies a checksum-validated committed game action. */
 async function commitAction(
@@ -34,7 +25,7 @@ async function commitAction(
   if (room.status !== DotsRoomStatus.PLAYING || !room.serverState) {
     return { status: "rejected", reason: "notInGame", snapshot: mapRoomToDetail(room) };
   }
-  if (!isLockedActingPlayer(room, userId) || !isActingPlayer(room, userId)) {
+  if (!canCommitAction(room, userId, body.action)) {
     return { status: "rejected", reason: "notAuthorized", snapshot: mapRoomToDetail(room) };
   }
 
