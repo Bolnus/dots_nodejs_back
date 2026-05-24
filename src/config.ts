@@ -39,8 +39,7 @@ function optionalString(name: string, fallback: string): string {
 /** Parses allowed frontend origins from the environment. */
 function getEnvFrontendUrls(): string[] {
   try {
-    const data = JSON.parse(process.env.FRONTEND_URLS || "") as unknown;
-    const urls = (data as { urls?: unknown[] })?.urls;
+    const urls = process.env.FRONTEND_URLS?.split(",");
     if (Array.isArray(urls)) {
       return urls.map(String);
     }
