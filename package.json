@@ -6,8 +6,9 @@
   "scripts": {
     "start": "npx tsx watch src/main.ts",
     "start:prod": "npm run prisma:migrate:deploy && node build/main.js",
+    "prebuild": "prisma generate",
     "build": "rimraf ./build && npx tsc",
-    "amvera:build": "npm run build && npm run prisma:generate",
+    "amvera:build": "npm run build",
     "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "vercel-build": "echo skip build",
