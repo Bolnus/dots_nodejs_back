@@ -5,12 +5,18 @@
   "main": "main.js",
   "scripts": {
     "start": "npx tsx watch src/main.ts",
+    "start:prod": "npm run prisma:migrate:deploy && node build/main.js",
     "build": "rimraf ./build && npx tsc",
+    "amvera:build": "npm run build && npm run prisma:generate",
     "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "vercel-build": "echo skip build",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy"
+  },
+  "engines": {
+    "node": "24.15.0"
   },
   "repository": {
     "type": "git",
@@ -34,6 +40,7 @@
     "express-session": "^1.19.0",
     "helmet": "^8.1.0",
     "pg": "^8.20.0",
+    "prisma": "^7.8.0",
     "qs": "^6.15.1",
     "serverless-http": "^4.0.0",
     "ws": "^8.20.1"
@@ -55,7 +62,6 @@
     "eslint-plugin-sonarjs": "^4.0.3",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.3",
-    "prisma": "^7.8.0",
     "rimraf": "^6.1.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.0",
