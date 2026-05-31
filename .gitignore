@@ -31,3 +31,4 @@ yarn-error.log*
 
 .cursor/
 /src/generated/prisma
+logs/
