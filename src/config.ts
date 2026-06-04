@@ -49,9 +49,34 @@ function getEnvFrontendUrls(): string[] {
   return [];
 }
 
+/** Removes trailing `/` characters from a URL-like string. */
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 export const EXPRESS_HOST = optionalString("EXPRESS_HOST", "0.0.0.0");
 export const EXPRESS_PORT = optionalNumber("EXPRESS_PORT", optionalNumber("PORT", 3030));
 export const DATABASE_CONNECTION_STRING = required("DATABASE_URL");
 export const FRONTEND_URLS = getEnvFrontendUrls();
 export const DOTS_MAX_ACTIVE_ROOMS = optionalNumber("DOTS_MAX_ACTIVE_ROOMS", 30);
 export const DOTS_IDLE_USER_TTL_HOURS = optionalNumber("DOTS_IDLE_USER_TTL_HOURS", 24);
+
+export const LLM_HOST = stripTrailingSlashes(required("LLM_HOST"));
+export const LLM_MODEL = required("LLM_MODEL");
+
+/** OpenAI-compatible base URL (Ollama serves `/v1` on the same host). */
+export const LLM_OPENAI_BASE_URL = `${LLM_HOST}/v1`;
+
+/** Ollama ignores the key for local use; required by the OpenAI client. */
+export const LLM_API_KEY = optionalString("LLM_API_KEY", "ollama");
+
+export const LLM_OPTIONS = {
+  temperature: optionalNumber("LLM_TEMPERATURE", 0.7),
+  top_p: optionalNumber("LLM_TOP_P", 0.9),
+  top_k: optionalNumber("LLM_TOP_K", 40),
+  num_ctx: optionalNumber("LLM_NUM_CTX", 8192)
+} as const;
