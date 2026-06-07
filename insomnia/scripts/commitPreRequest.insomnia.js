@@ -268,8 +268,14 @@ function applyCommitPlacement(state, point, by) {
     return reject(state, "notYourTurn");
   }
   const targetCell = state.cells[point.r]?.[point.c];
-  if (!targetCell || targetCell.blocked || targetCell.owner !== null) {
-    return reject(state, "invalidPlacementCell");
+  if (!targetCell) {
+    return reject(state, "placementPointOutOfBounds");
+  }
+  if (targetCell.blocked) {
+    return reject(state, "placementCellBlocked");
+  }
+  if (targetCell.owner !== null) {
+    return reject(state, "placementCellOccupied");
   }
   const cells = cellsWithDot(state.cells, point, by);
   return accept(

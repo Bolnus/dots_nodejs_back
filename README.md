@@ -412,7 +412,9 @@ Rejection (still `200`):
 | `notInGame` | Room is not in `playing` or has no `serverState` |
 | `gameNotInPlay` | `serverState.mode` is not `"play"` |
 | `notYourTurn` | `action.by` is not the current placing player |
-| `invalidPlacementCell` | Placement target is missing, blocked, or already owned |
+| `placementPointOutOfBounds` | Placement coordinates are outside the board grid |
+| `placementCellBlocked` | Placement target is blocked (captured interior) |
+| `placementCellOccupied` | Placement target already has a dot |
 | `captureRingTooShort` | Capture ring has fewer than 3 vertices |
 | `invalidCaptureStarter` | Capture starter cell is missing, blocked, or already owned |
 | `captureRingVerticesInvalid` | Non-starter ring vertices are not own unblocked dots |
