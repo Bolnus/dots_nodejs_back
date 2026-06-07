@@ -248,6 +248,180 @@ function withHashAndVersion(next) {
   return { ...bumped, hash: computeServerStateHash(bumped) };
 }
 
+function areNeighbourCells(a, b) {
+  const dr = Math.abs(a.r - b.r);
+  const dc = Math.abs(a.c - b.c);
+  return dr <= 1 && dc <= 1 && !(dr === 0 && dc === 0);
+}
+
+function normalizeCaptureRing(ring) {
+  if (ring.length < 3) {
+    return null;
+  }
+  const [first] = ring;
+  const last = ring[ring.length - 1];
+  if (first.r === last.r && first.c === last.c) {
+    if (ring.length < 4) {
+      return null;
+    }
+    return ring.slice(0, -1).map((point) => ({ r: point.r, c: point.c }));
+  }
+  return ring.map((point) => ({ r: point.r, c: point.c }));
+}
+
+function isCaptureRingConnected(ring) {
+  if (ring.length < 3) {
+    return false;
+  }
+  for (let i = 0; i < ring.length - 1; i++) {
+    if (!areNeighbourCells(ring[i], ring[i + 1])) {
+      return false;
+    }
+  }
+  return areNeighbourCells(ring[ring.length - 1], ring[0]);
+}
+
+function currentServerPlacingPlayer(state) {
+  return state.dotsPlacedCount % 2 === 0 ? "player0" : "player1";
+}
+
+function rejectResult(state, reason) {
+  return { ok: false, reason, state };
+}
+
+function acceptResult(state) {
+  return { ok: true, state };
+}
+
+function applyCommitPlacement(state, point, by) {
+  if (state.mode !== "play") {
+    return rejectResult(state, "gameNotInPlay");
+  }
+  if (currentServerPlacingPlayer(state) !== by) {
+    return rejectResult(state, "notYourTurn");
+  }
+  const targetCell = state.cells[point.r]?.[point.c];
+  if (!targetCell) {
+    return rejectResult(state, "placementPointOutOfBounds");
+  }
+  if (targetCell.blocked) {
+    return rejectResult(state, "placementCellBlocked");
+  }
+  if (targetCell.owner !== null) {
+    return rejectResult(state, "placementCellOccupied");
+  }
+  const cells = cellsWithDot(state.cells, point, by);
+  return acceptResult(
+    withHashAndVersion({
+      ...state,
+      cells,
+      dotsPlacedCount: state.dotsPlacedCount + 1
+    })
+  );
+}
+
+function ringVerticesAreOwn(cells, ring, by) {
+  for (let idx = 1; idx < ring.length; idx++) {
+    const vertex = ring[idx];
+    const vertexCell = cells[vertex.r]?.[vertex.c];
+    if (!vertexCell || vertexCell.owner !== by || vertexCell.blocked) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function applyCommitCapture(state, ring, by) {
+  if (state.mode !== "play") {
+    return rejectResult(state, "gameNotInPlay");
+  }
+  if (currentServerPlacingPlayer(state) !== by) {
+    return rejectResult(state, "notYourTurn");
+  }
+  const normalizedRing = normalizeCaptureRing(ring);
+  if (!normalizedRing) {
+    return rejectResult(state, "captureRingTooShort");
+  }
+  if (!isCaptureRingConnected(normalizedRing)) {
+    return rejectResult(state, "captureRingNotConnected");
+  }
+  const [starter] = normalizedRing;
+  const starterCell = state.cells[starter.r]?.[starter.c];
+  if (!starterCell || starterCell.blocked || starterCell.owner !== null) {
+    return rejectResult(state, "invalidCaptureStarter");
+  }
+  const cellsWithStarter = cellsWithDot(state.cells, starter, by);
+  if (!ringVerticesAreOwn(cellsWithStarter, normalizedRing, by)) {
+    return rejectResult(state, "captureRingVerticesInvalid");
+  }
+  const capture = computeCapture(cellsWithStarter, normalizedRing, by);
+  if (!capture) {
+    return rejectResult(state, "invalidCapture");
+  }
+  const cellsAfter = applyCapture(cellsWithStarter, capture);
+  const newPolygon = { owner: by, ring: capture.ring };
+  const polygons = [...state.polygons, newPolygon];
+  const scores = computeScoresFromGridAndPolygons(cellsAfter, polygons);
+  return acceptResult(
+    withHashAndVersion({
+      ...state,
+      cells: cellsAfter,
+      scores,
+      polygons,
+      dotsPlacedCount: state.dotsPlacedCount + 1
+    })
+  );
+}
+
+function applySurrender(state, by) {
+  if (state.mode !== "play") {
+    return rejectResult(state, "gameNotInPlay");
+  }
+  const winner = by === "player0" ? "player1" : "player0";
+  return acceptResult(
+    withHashAndVersion({
+      ...state,
+      mode: "ended",
+      winner,
+      surrenderedBy: by
+    })
+  );
+}
+
+function reduceServerAuthoritative(state, action) {
+  switch (action.type) {
+    case "COMMIT_PLACEMENT": {
+      const placement = applyCommitPlacement(state, action.point, action.by);
+      if (!placement.ok) {
+        return placement;
+      }
+      return acceptResult(maybeEndOnBoardFull(placement.state));
+    }
+    case "COMMIT_CAPTURE": {
+      const capture = applyCommitCapture(state, action.ring, action.by);
+      if (!capture.ok) {
+        return capture;
+      }
+      return acceptResult(maybeEndOnBoardFull(capture.state));
+    }
+    case "SURRENDER":
+      return applySurrender(state, action.by);
+    default:
+      return rejectResult(state, "invalidAction");
+  }
+}
+
+function computeExpectedNextHash(state, action) {
+  const authoritative = reduceServerAuthoritative(state, action);
+  if (authoritative.ok) {
+    console.log("[commit] expectedNextHash (authoritative):", authoritative.state.hash);
+    return authoritative.state.hash;
+  }
+  const optimistic = reduceServerForHashPreview(state, action);
+  console.log("[commit] expectedNextHash (optimistic, server may reject):", optimistic.hash, authoritative.reason);
+  return optimistic.hash;
+}
+
 /** Always applies placement and hashes — ignores turn/cell validation (hash preview for API tests). */
 function applyCommitPlacementForce(state, point, by) {
   let cells = state.cells;
@@ -457,9 +631,7 @@ if (state) {
   console.log("[commit] serverState.hash:", prevHash);
 
   if (body.action?.type) {
-    const nextState = reduceServerForHashPreview(state, body.action);
-    expectedNextHash = nextState.hash;
-    console.log("[commit] expectedNextHash (forced preview):", expectedNextHash);
+    expectedNextHash = computeExpectedNextHash(state, body.action);
   }
 } else {
   console.log("[commit] using env hash fallback, prevHash:", prevHash || "(empty)");
