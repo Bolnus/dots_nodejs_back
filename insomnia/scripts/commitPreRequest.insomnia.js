@@ -411,19 +411,37 @@ function sendDotsRequest(req) {
 }
 
 function readRequestJsonBody() {
-  const raw = insomnia.request.body?.raw ?? "";
-  if (typeof raw !== "string" || !raw.trim()) {
-    throw new Error("Commit body must be JSON with an action object.");
+  const requestBody = insomnia.request.body ?? {};
+  const raw =
+    (typeof requestBody.raw === "string" && requestBody.raw) ||
+    (typeof requestBody.text === "string" && requestBody.text) ||
+    "";
+
+  console.log("[commit] body mode:", requestBody.mode ?? "(none)");
+  console.log("[commit] raw length:", raw.length);
+
+  if (!raw.trim()) {
+    throw new Error(
+      "Commit body is empty. Open the Body tab and ensure JSON with action is present."
+    );
   }
+
   const rendered = insomnia.environment.replaceIn(raw);
+  console.log("[commit] rendered body preview:", rendered.slice(0, 120));
   return JSON.parse(rendered);
 }
 
 function writeRequestJsonBody(body) {
+  const raw = JSON.stringify(body, null, 2);
   insomnia.request.body.update({
     mode: "raw",
-    raw: JSON.stringify(body, null, 2)
+    raw
   });
+  console.log("[commit] wrote body with hashes:", {
+    prevHash: body.prevHash,
+    expectedNextHash: body.expectedNextHash
+  });
+  console.log("[commit] request.body.raw length after update:", insomnia.request.body?.raw?.length ?? 0);
 }
 
 async function fetchRoomServerState() {
@@ -453,22 +471,28 @@ async function fetchRoomServerState() {
   return room.serverState;
 }
 
-(async () => {
-  const body = readRequestJsonBody();
-  if (!body.action?.type) {
-    throw new Error("Commit body.action is required.");
-  }
+console.log("[commit] pre-request script started");
 
-  const state = await fetchRoomServerState();
-  const reduced = reduceServer(state, body.action);
-  if (!reduced.ok) {
-    throw new Error(`Reducer rejected action: ${reduced.reason}`);
-  }
+const body = readRequestJsonBody();
+if (!body.action?.type) {
+  throw new Error("Commit body.action is required.");
+}
 
-  body.prevHash = state.hash;
-  body.expectedNextHash = reduced.state.hash;
-  writeRequestJsonBody(body);
+console.log("[commit] action type:", body.action.type);
 
-  insomnia.environment.set("prev_hash", body.prevHash);
-  insomnia.environment.set("expected_next_hash", body.expectedNextHash);
-})();
+const state = await fetchRoomServerState();
+console.log("[commit] serverState.hash:", state.hash);
+
+const reduced = reduceServer(state, body.action);
+if (!reduced.ok) {
+  throw new Error(`Reducer rejected action: ${reduced.reason}`);
+}
+
+body.prevHash = state.hash;
+body.expectedNextHash = reduced.state.hash;
+writeRequestJsonBody(body);
+
+insomnia.environment.set("prev_hash", body.prevHash);
+insomnia.environment.set("expected_next_hash", body.expectedNextHash);
+
+console.log("[commit] pre-request script finished");
