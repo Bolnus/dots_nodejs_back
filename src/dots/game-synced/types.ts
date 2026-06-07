@@ -62,6 +62,7 @@ export type ReduceServerRejectReason =
   | "captureRingTooShort"
   | "invalidCaptureStarter"
   | "captureRingVerticesInvalid"
+  | "captureRingNotConnected"
   | "invalidCapture";
 
 /** Outcome of applying one committed action to authoritative server state. */

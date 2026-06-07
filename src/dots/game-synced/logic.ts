@@ -61,6 +61,35 @@ export function pointInPolygon(test: GridPoint, polygonRing: readonly GridPoint[
   return wn !== 0;
 }
 
+/** Strips a duplicated closing vertex when present; otherwise returns a copy of the ring. */
+export function normalizeCaptureRing(ring: readonly GridPoint[]): GridPoint[] | null {
+  if (ring.length < 3) {
+    return null;
+  }
+  const [first] = ring;
+  const last = ring[ring.length - 1];
+  if (first.r === last.r && first.c === last.c) {
+    if (ring.length < 4) {
+      return null;
+    }
+    return ring.slice(0, -1).map((point) => ({ r: point.r, c: point.c }));
+  }
+  return ring.map((point) => ({ r: point.r, c: point.c }));
+}
+
+/** True when every consecutive ring vertex, including last → first, is a king neighbour. */
+export function isCaptureRingConnected(ring: readonly GridPoint[]): boolean {
+  if (ring.length < 3) {
+    return false;
+  }
+  for (let i = 0; i < ring.length - 1; i++) {
+    if (!areNeighbourCells(ring[i], ring[i + 1])) {
+      return false;
+    }
+  }
+  return areNeighbourCells(ring[ring.length - 1], ring[0]);
+}
+
 /** Closed ring without repeating the first vertex at the end. */
 export function ringFromChainPath(path: readonly GridPoint[]): GridPoint[] {
   if (path.length < 4) {

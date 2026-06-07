@@ -1,4 +1,10 @@
-import { applyCapture, computeCapture, computeScoresFromGridAndPolygons } from "./logic.js";
+import {
+  applyCapture,
+  computeCapture,
+  computeScoresFromGridAndPolygons,
+  isCaptureRingConnected,
+  normalizeCaptureRing
+} from "./logic.js";
 import { computeServerStateHash } from "./serverState.js";
 import type {
   CellState,
@@ -90,19 +96,23 @@ function applyCommitCapture(state: DotsServerGameState, ring: GridPoint[], by: P
   if (currentServerPlacingPlayer(state) !== by) {
     return reject(state, "notYourTurn");
   }
-  if (ring.length < 3) {
+  const normalizedRing = normalizeCaptureRing(ring);
+  if (!normalizedRing) {
     return reject(state, "captureRingTooShort");
   }
-  const [starter] = ring;
+  if (!isCaptureRingConnected(normalizedRing)) {
+    return reject(state, "captureRingNotConnected");
+  }
+  const [starter] = normalizedRing;
   const starterCell = state.cells[starter.r]?.[starter.c];
   if (!starterCell || starterCell.blocked || starterCell.owner !== null) {
     return reject(state, "invalidCaptureStarter");
   }
   const cellsWithStarter = cellsWithDot(state.cells, starter, by);
-  if (!ringVerticesAreOwn(cellsWithStarter, ring, by)) {
+  if (!ringVerticesAreOwn(cellsWithStarter, normalizedRing, by)) {
     return reject(state, "captureRingVerticesInvalid");
   }
-  const capture = computeCapture(cellsWithStarter, ring, by);
+  const capture = computeCapture(cellsWithStarter, normalizedRing, by);
   if (!capture) {
     return reject(state, "invalidCapture");
   }

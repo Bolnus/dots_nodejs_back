@@ -418,6 +418,7 @@ Rejection (still `200`):
 | `captureRingTooShort` | Capture ring has fewer than 3 vertices |
 | `invalidCaptureStarter` | Capture starter cell is missing, blocked, or already owned |
 | `captureRingVerticesInvalid` | Non-starter ring vertices are not own unblocked dots |
+| `captureRingNotConnected` | Consecutive ring vertices (including last → first) are not king neighbours |
 | `invalidCapture` | Enclosure geometry fails server capture rules |
 
 On success, broadcasts `STATE_DELTA`. When the game ends (`serverState.mode === "ended"`), room becomes `finished` and locked player memberships are released.
