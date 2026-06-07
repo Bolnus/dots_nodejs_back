@@ -69,6 +69,7 @@ export async function postCommit(req: DotsRequest, res: ExpressResponse): Promis
     expectedNextHash?: string;
   };
   if (!req.dotsUser || !body.action || !body.prevHash || !body.expectedNextHash) {
+    console.log("dotsUser", req.dotsUser, "body", body)
     sendDotsError(res, req.languageCode, new DotsApiError(400, "dotsInternal"));
     return;
   }
