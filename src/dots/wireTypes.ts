@@ -98,4 +98,10 @@ export type CommitRejectReason = "prevHash" | "badHash" | "notAuthorized" | "not
 
 export type CommitActionResult =
   | Readonly<{ status: "ok" }>
-  | Readonly<{ status: "rejected"; reason: CommitRejectReason; snapshot: DotsRoomDetail }>;
+  | Readonly<{
+      status: "rejected";
+      reason: CommitRejectReason;
+      /** Localized rejection text when the server generated it (`Accept-Language`). */
+      messageLocal?: string;
+      snapshot: DotsRoomDetail;
+    }>;

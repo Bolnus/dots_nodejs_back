@@ -14,5 +14,17 @@ export const ru = {
   dotsPlayingLocked: "Игра уже идёт, новых игроков нельзя добавить.",
   dotsUnauthorized: "У вас нет прав на это действие.",
   dotsNotInGame: "В этой комнате сейчас нет активной игры.",
+  dotsCommitPrevHash: "Состояние игры устарело. Поле обновлено.",
+  dotsCommitBadHash: "Ход не удалось проверить. Попробуйте снова.",
+  dotsCommitGameNotInPlay: "Игра уже не идёт.",
+  dotsCommitNotYourTurn: "Сейчас не ваш ход.",
+  dotsCommitPlacementPointOutOfBounds: "Эта точка находится за пределами поля.",
+  dotsCommitPlacementCellBlocked: "Эта точка заблокирована и недоступна.",
+  dotsCommitPlacementCellOccupied: "В этой точке уже есть точка.",
+  dotsCommitCaptureRingTooShort: "Захват должен охватывать не менее трёх точек.",
+  dotsCommitInvalidCaptureStarter: "Начальная точка захвата недопустима.",
+  dotsCommitCaptureRingVerticesInvalid: "Контур захвата должен состоять только из ваших точек.",
+  dotsCommitCaptureRingNotConnected: "Контур захвата должен проходить по соседним точкам.",
+  dotsCommitInvalidCapture: "Этот контур не захватывает точки соперника.",
   dotsInternal: "Произошла ошибка. Попробуйте снова."
 } as const;

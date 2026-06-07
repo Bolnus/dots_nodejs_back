@@ -398,9 +398,12 @@ Rejection (still `200`):
 {
   "status": "rejected",
   "reason": "prevHash",
+  "messageLocal": "Your game state is out of date. The board has been refreshed.",
   "snapshot": { }
 }
 ```
+
+`messageLocal` is optional on the wire type; the server includes it on every rejection, localized via `Accept-Language` (same locale rules as HTTP error bodies).
 
 `reason`:
 

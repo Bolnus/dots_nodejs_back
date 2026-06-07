@@ -14,5 +14,17 @@ export const en = {
   dotsPlayingLocked: "This game is in progress and cannot accept new players.",
   dotsUnauthorized: "You are not allowed to perform this action.",
   dotsNotInGame: "This room is not in an active game.",
+  dotsCommitPrevHash: "Your game state is out of date. The board has been refreshed.",
+  dotsCommitBadHash: "The move could not be verified. Please try again.",
+  dotsCommitGameNotInPlay: "The game is no longer in progress.",
+  dotsCommitNotYourTurn: "It is not your turn.",
+  dotsCommitPlacementPointOutOfBounds: "That point is outside the board.",
+  dotsCommitPlacementCellBlocked: "That point is blocked and cannot be used.",
+  dotsCommitPlacementCellOccupied: "That point already has a dot.",
+  dotsCommitCaptureRingTooShort: "A capture must enclose at least three points.",
+  dotsCommitInvalidCaptureStarter: "The capture starter point is not valid.",
+  dotsCommitCaptureRingVerticesInvalid: "The capture outline must use only your own dots.",
+  dotsCommitCaptureRingNotConnected: "The capture outline must follow adjacent dots.",
+  dotsCommitInvalidCapture: "That enclosure does not capture any opponent dots.",
   dotsInternal: "Something went wrong. Please try again."
 } as const;
