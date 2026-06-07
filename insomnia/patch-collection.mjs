@@ -10,20 +10,18 @@ function normalize(text) {
 let yaml = normalize(fs.readFileSync(yamlPath, "utf8"));
 const script = normalize(fs.readFileSync(scriptPath, "utf8"));
 
-const webSocketIdx = yaml.indexOf("\n  - name: WebSocket");
-if (webSocketIdx < 0) {
-  throw new Error("WebSocket folder not found");
+const envStart = yaml.indexOf("\nenvironments:");
+if (envStart < 0) {
+  throw new Error("environments section not found");
 }
 
-const commitIdx = yaml.lastIndexOf(
-  '      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/actions/commit"',
-  webSocketIdx
-);
+const commitMarker = '      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/actions/commit"';
+const commitIdx = yaml.lastIndexOf(commitMarker, envStart);
 if (commitIdx < 0) {
   throw new Error("commit request not found");
 }
 
-let commitSection = yaml.slice(commitIdx, webSocketIdx);
+let commitSection = yaml.slice(commitIdx, envStart);
 const scriptsIdx = commitSection.indexOf("\n        scripts:");
 if (scriptsIdx >= 0) {
   commitSection = commitSection.slice(0, scriptsIdx);
@@ -41,6 +39,6 @@ const commitWithScripts = `${commitSection}
 ${scriptBlock}
 `;
 
-yaml = yaml.slice(0, commitIdx) + commitWithScripts + yaml.slice(webSocketIdx);
+yaml = yaml.slice(0, commitIdx) + commitWithScripts + yaml.slice(envStart);
 fs.writeFileSync(yamlPath, yaml, "utf8");
 console.log("Script reinjected");

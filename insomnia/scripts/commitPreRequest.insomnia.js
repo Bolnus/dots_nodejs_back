@@ -235,10 +235,6 @@ function applyCapture(grid, capture) {
   return next;
 }
 
-function currentServerPlacingPlayer(state) {
-  return state.dotsPlacedCount % 2 === 0 ? "player0" : "player1";
-}
-
 function cellsWithDot(cells, point, owner) {
   return cells.map((row, rowIndex) =>
     row.map((existing, colIndex) =>
@@ -252,103 +248,68 @@ function withHashAndVersion(next) {
   return { ...bumped, hash: computeServerStateHash(bumped) };
 }
 
-function reject(state, reason) {
-  return { ok: false, reason, state };
+/** Always applies placement and hashes — ignores turn/cell validation (hash preview for API tests). */
+function applyCommitPlacementForce(state, point, by) {
+  let cells = state.cells;
+  if (point && cells[point.r]?.[point.c] !== undefined) {
+    cells = cellsWithDot(cells, point, by);
+  }
+  return withHashAndVersion({
+    ...state,
+    cells,
+    dotsPlacedCount: state.dotsPlacedCount + 1
+  });
 }
 
-function accept(state) {
-  return { ok: true, state };
-}
+/** Always applies capture best-effort and hashes — ignores turn/ring validation (hash preview for API tests). */
+function applyCommitCaptureForce(state, ring, by) {
+  let cells = state.cells;
+  let polygons = state.polygons;
 
-function applyCommitPlacement(state, point, by) {
-  if (state.mode !== "play") {
-    return reject(state, "gameNotInPlay");
-  }
-  if (currentServerPlacingPlayer(state) !== by) {
-    return reject(state, "notYourTurn");
-  }
-  const targetCell = state.cells[point.r]?.[point.c];
-  if (!targetCell) {
-    return reject(state, "placementPointOutOfBounds");
-  }
-  if (targetCell.blocked) {
-    return reject(state, "placementCellBlocked");
-  }
-  if (targetCell.owner !== null) {
-    return reject(state, "placementCellOccupied");
-  }
-  const cells = cellsWithDot(state.cells, point, by);
-  return accept(
-    withHashAndVersion({
-      ...state,
-      cells,
-      dotsPlacedCount: state.dotsPlacedCount + 1
-    })
-  );
-}
-
-function ringVerticesAreOwn(cells, ring, by) {
-  for (let idx = 1; idx < ring.length; idx++) {
-    const vertex = ring[idx];
-    const vertexCell = cells[vertex.r]?.[vertex.c];
-    if (!vertexCell || vertexCell.owner !== by || vertexCell.blocked) {
-      return false;
+  if (ring?.length >= 1) {
+    const [starter] = ring;
+    if (starter && cells[starter.r]?.[starter.c] !== undefined) {
+      cells = cellsWithDot(cells, starter, by);
     }
   }
-  return true;
+
+  if (ring?.length >= 3) {
+    const capture = computeCapture(cells, ring, by);
+    if (capture) {
+      cells = applyCapture(cells, capture);
+      polygons = [...polygons, { owner: by, ring: capture.ring }];
+    } else {
+      polygons = [...polygons, { owner: by, ring: [...ring] }];
+      const dotRows = cells.length;
+      const dotCols = cells[0]?.length ?? 0;
+      const interior = computeInteriorDotKeys(ring, dotRows, dotCols);
+      cells = cells.map((row, r) =>
+        row.map((cell, c) =>
+          interior.has(dotKey(r, c)) ? { owner: cell.owner, blocked: true } : cell
+        )
+      );
+    }
+  }
+
+  const scores = computeScoresFromGridAndPolygons(cells, polygons);
+  return withHashAndVersion({
+    ...state,
+    cells,
+    scores,
+    polygons,
+    dotsPlacedCount: state.dotsPlacedCount + 1
+  });
 }
 
-function applyCommitCapture(state, ring, by) {
-  if (state.mode !== "play") {
-    return reject(state, "gameNotInPlay");
-  }
-  if (currentServerPlacingPlayer(state) !== by) {
-    return reject(state, "notYourTurn");
-  }
-  if (ring.length < 3) {
-    return reject(state, "captureRingTooShort");
-  }
-  const [starter] = ring;
-  const starterCell = state.cells[starter.r]?.[starter.c];
-  if (!starterCell || starterCell.blocked || starterCell.owner !== null) {
-    return reject(state, "invalidCaptureStarter");
-  }
-  const cellsWithStarter = cellsWithDot(state.cells, starter, by);
-  if (!ringVerticesAreOwn(cellsWithStarter, ring, by)) {
-    return reject(state, "captureRingVerticesInvalid");
-  }
-  const capture = computeCapture(cellsWithStarter, ring, by);
-  if (!capture) {
-    return reject(state, "invalidCapture");
-  }
-  const cellsAfter = applyCapture(cellsWithStarter, capture);
-  const newPolygon = { owner: by, ring: capture.ring };
-  const polygons = [...state.polygons, newPolygon];
-  const scores = computeScoresFromGridAndPolygons(cellsAfter, polygons);
-  return accept(
-    withHashAndVersion({
-      ...state,
-      cells: cellsAfter,
-      scores,
-      polygons,
-      dotsPlacedCount: state.dotsPlacedCount + 1
-    })
-  );
-}
-
-function applySurrender(state, by) {
-  if (state.mode !== "play") {
-    return reject(state, "gameNotInPlay");
-  }
+/** Always applies surrender and hashes — ignores play mode (hash preview for API tests). */
+function applySurrenderForce(state, by) {
   const winner = by === "player0" ? "player1" : "player0";
-  return accept(
-    withHashAndVersion({
-      ...state,
-      mode: "ended",
-      winner,
-      surrenderedBy: by
-    })
-  );
+  return withHashAndVersion({
+    ...state,
+    mode: "ended",
+    winner,
+    surrenderedBy: by
+  });
 }
 
 function hasPlayableCell(cells) {
@@ -381,26 +342,17 @@ function maybeEndOnBoardFull(state) {
   });
 }
 
-function reduceServer(state, action) {
+/** Naive reducer for hash preview: always mutates + hashes; server validates for real. */
+function reduceServerForHashPreview(state, action) {
   switch (action.type) {
-    case "COMMIT_PLACEMENT": {
-      const placement = applyCommitPlacement(state, action.point, action.by);
-      if (!placement.ok) {
-        return placement;
-      }
-      return accept(maybeEndOnBoardFull(placement.state));
-    }
-    case "COMMIT_CAPTURE": {
-      const capture = applyCommitCapture(state, action.ring, action.by);
-      if (!capture.ok) {
-        return capture;
-      }
-      return accept(maybeEndOnBoardFull(capture.state));
-    }
+    case "COMMIT_PLACEMENT":
+      return maybeEndOnBoardFull(applyCommitPlacementForce(state, action.point, action.by));
+    case "COMMIT_CAPTURE":
+      return maybeEndOnBoardFull(applyCommitCaptureForce(state, action.ring, action.by));
     case "SURRENDER":
-      return applySurrender(state, action.by);
+      return applySurrenderForce(state, action.by);
     default:
-      return reject(state, "invalidAction");
+      return withHashAndVersion({ ...state });
   }
 }
 
@@ -417,24 +369,28 @@ function sendDotsRequest(req) {
 }
 
 function readRequestJsonBody() {
-  const requestBody = insomnia.request.body ?? {};
-  const raw =
-    (typeof requestBody.raw === "string" && requestBody.raw) ||
-    (typeof requestBody.text === "string" && requestBody.text) ||
-    "";
+  try {
+    const requestBody = insomnia.request.body ?? {};
+    const raw =
+      (typeof requestBody.raw === "string" && requestBody.raw) ||
+      (typeof requestBody.text === "string" && requestBody.text) ||
+      "";
 
-  console.log("[commit] body mode:", requestBody.mode ?? "(none)");
-  console.log("[commit] raw length:", raw.length);
+    console.log("[commit] body mode:", requestBody.mode ?? "(none)");
+    console.log("[commit] raw length:", raw.length);
 
-  if (!raw.trim()) {
-    throw new Error(
-      "Commit body is empty. Open the Body tab and ensure JSON with action is present."
-    );
+    if (!raw.trim()) {
+      console.log("[commit] empty body template, using {}");
+      return {};
+    }
+
+    const rendered = insomnia.environment.replaceIn(raw);
+    console.log("[commit] rendered body preview:", rendered.slice(0, 120));
+    return JSON.parse(rendered);
+  } catch (err) {
+    console.log("[commit] body parse error:", err.message);
+    return {};
   }
-
-  const rendered = insomnia.environment.replaceIn(raw);
-  console.log("[commit] rendered body preview:", rendered.slice(0, 120));
-  return JSON.parse(rendered);
 }
 
 function writeRequestJsonBody(body) {
@@ -451,54 +407,69 @@ function writeRequestJsonBody(body) {
 }
 
 async function fetchRoomServerState() {
-  const baseUrl = insomnia.environment.get("base_url");
-  const roomId = insomnia.environment.get("room_id");
-  if (!roomId) {
-    throw new Error("Set room_id in the active environment.");
-  }
-
-  const response = await sendDotsRequest({
-    url: `${baseUrl}/dots/rooms/${roomId}`,
-    method: "GET",
-    header: {
-      "Accept-Language": insomnia.environment.get("accept_language") || "en"
+  try {
+    const baseUrl = insomnia.environment.get("base_url");
+    const roomId = insomnia.environment.get("room_id");
+    if (!roomId) {
+      console.log("[commit] room_id not set, skipping room fetch");
+      return null;
     }
-  });
 
-  const status = response.code ?? response.status;
-  if (status >= 400) {
-    throw new Error(`GET room failed (${status}): ${response.body}`);
-  }
+    const response = await sendDotsRequest({
+      url: `${baseUrl}/dots/rooms/${roomId}`,
+      method: "GET",
+      header: {
+        "Accept-Language": insomnia.environment.get("accept_language") || "en"
+      }
+    });
 
-  const room = JSON.parse(response.body);
-  if (!room.serverState) {
-    throw new Error("Room has no serverState. Start the game first.");
+    const status = response.code ?? response.status;
+    if (status >= 400) {
+      console.log("[commit] GET room failed:", status, response.body);
+      return null;
+    }
+
+    const room = JSON.parse(response.body);
+    if (!room.serverState) {
+      console.log("[commit] room has no serverState");
+      return null;
+    }
+    return room.serverState;
+  } catch (err) {
+    console.log("[commit] fetch room error:", err.message);
+    return null;
   }
-  return room.serverState;
 }
 
 console.log("[commit] pre-request script started");
 
 const body = readRequestJsonBody();
-if (!body.action?.type) {
-  throw new Error("Commit body.action is required.");
+if (body.action?.type) {
+  console.log("[commit] action type:", body.action.type);
 }
 
-console.log("[commit] action type:", body.action.type);
+let prevHash = insomnia.environment.get("prev_hash") || "";
+let expectedNextHash = insomnia.environment.get("expected_next_hash") || "";
 
 const state = await fetchRoomServerState();
-console.log("[commit] serverState.hash:", state.hash);
+if (state) {
+  prevHash = state.hash;
+  console.log("[commit] serverState.hash:", prevHash);
 
-const reduced = reduceServer(state, body.action);
-if (!reduced.ok) {
-  throw new Error(`Reducer rejected action: ${reduced.reason}`);
+  if (body.action?.type) {
+    const nextState = reduceServerForHashPreview(state, body.action);
+    expectedNextHash = nextState.hash;
+    console.log("[commit] expectedNextHash (forced preview):", expectedNextHash);
+  }
+} else {
+  console.log("[commit] using env hash fallback, prevHash:", prevHash || "(empty)");
 }
 
-body.prevHash = state.hash;
-body.expectedNextHash = reduced.state.hash;
+body.prevHash = prevHash;
+body.expectedNextHash = expectedNextHash;
 writeRequestJsonBody(body);
 
-insomnia.environment.set("prev_hash", body.prevHash);
-insomnia.environment.set("expected_next_hash", body.expectedNextHash);
+insomnia.environment.set("prev_hash", prevHash);
+insomnia.environment.set("expected_next_hash", expectedNextHash);
 
-console.log("[commit] pre-request script finished");
+console.log("[commit] pre-request script finished (request will always send)");
