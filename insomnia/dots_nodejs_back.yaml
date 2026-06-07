@@ -1,0 +1,470 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: dots_nodejs_back
+meta:
+  id: wrk_dots_nodejs_back_api
+  created: 1749000000000
+  modified: 1749000000000
+  description: REST and WebSocket API for the Dots multiplayer backend. Import via Insomnia → Import → From File.
+collection:
+  - name: Health
+    meta:
+      id: fld_dots_health
+      created: 1749000000100
+      modified: 1749000000100
+      sortKey: -1000
+    children:
+      - url: "{{ _.base_url }}/"
+        name: GET / — health
+        meta:
+          id: req_dots_health
+          created: 1749000000101
+          modified: 1749000000101
+          isPrivate: false
+          description: HTML status page (“Backend online”).
+          sortKey: -1001
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+  - name: Sessions
+    meta:
+      id: fld_dots_sessions
+      created: 1749000000200
+      modified: 1749000000200
+      sortKey: -900
+      description: Run **Register** first; other authenticated requests use its token automatically.
+    children:
+      - url: "{{ _.base_url }}/dots/sessions/register"
+        name: POST /dots/sessions/register
+        meta:
+          id: req_dots_register01
+          created: 1749000000201
+          modified: 1749000000201
+          isPrivate: false
+          description: Register or re-authenticate by display name. Returns `token` used by Bearer auth on other requests.
+          sortKey: -901
+        method: POST
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "displayName": "{{ _.display_name }}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/sessions/me"
+        name: PATCH /dots/sessions/me
+        meta:
+          id: req_dots_patch_me
+          created: 1749000000202
+          modified: 1749000000202
+          isPrivate: false
+          sortKey: -902
+        method: PATCH
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "displayName": "{{ _.display_name }}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/sessions/me"
+        name: DELETE /dots/sessions/me
+        meta:
+          id: req_dots_delete_me
+          created: 1749000000203
+          modified: 1749000000203
+          isPrivate: false
+          description: "204 No Content on success."
+          sortKey: -903
+        method: DELETE
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/sessions/heartbeat"
+        name: POST /dots/sessions/heartbeat
+        meta:
+          id: req_dots_heartbeat
+          created: 1749000000204
+          modified: 1749000000204
+          isPrivate: false
+          description: Refreshes last-seen; returns `{ activeRoom }` if user is in a playing room.
+          sortKey: -904
+        method: POST
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        body:
+          mimeType: application/json
+          text: "{}"
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+  - name: Rooms
+    meta:
+      id: fld_dots_rooms
+      created: 1749000000300
+      modified: 1749000000300
+      sortKey: -800
+      description: Set `room_id` in the environment after **Create room**, or paste a room UUID manually.
+    children:
+      - url: "{{ _.base_url }}/dots/rooms"
+        name: GET /dots/rooms
+        meta:
+          id: req_dots_list_rooms
+          created: 1749000000301
+          modified: 1749000000301
+          isPrivate: false
+          description: List all rooms (no auth).
+          sortKey: -801
+        method: GET
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms"
+        name: POST /dots/rooms — create
+        meta:
+          id: req_dots_create_room01
+          created: 1749000000302
+          modified: 1749000000302
+          isPrivate: false
+          description: Creator becomes player0. Grid rows/cols must be 3–60.
+          sortKey: -802
+        method: POST
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "name": "{{ _.room_name }}",
+              "config": {
+                "rows": {{ _.board_rows }},
+                "cols": {{ _.board_cols }}
+              },
+              "isPrivate": false,
+              "password": ""
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}"
+        name: GET /dots/rooms/:roomId
+        meta:
+          id: req_dots_get_room
+          created: 1749000000303
+          modified: 1749000000303
+          isPrivate: false
+          description: No auth. Uses `room_id` from environment.
+          sortKey: -803
+        method: GET
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}"
+        name: PATCH /dots/rooms/:roomId
+        meta:
+          id: req_dots_patch_room
+          created: 1749000000304
+          modified: 1749000000304
+          isPrivate: false
+          description: Owner only, room must be `waiting`. All body fields optional.
+          sortKey: -804
+        method: PATCH
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "config": {
+                "rows": {{ _.board_rows }},
+                "cols": {{ _.board_cols }}
+              },
+              "isPrivate": false,
+              "password": "",
+              "kickUserId": ""
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/join"
+        name: POST /dots/rooms/:roomId/join
+        meta:
+          id: req_dots_join_room
+          created: 1749000000305
+          modified: 1749000000305
+          isPrivate: false
+          description: |-
+            Join as player or viewer. Use asViewer=true for in-progress games.
+          sortKey: -805
+        method: POST
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "password": "",
+              "asViewer": false
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/leave"
+        name: POST /dots/rooms/:roomId/leave
+        meta:
+          id: req_dots_leave_room
+          created: 1749000000306
+          modified: 1749000000306
+          isPrivate: false
+          description: "204 on success. No-op while game is playing for locked players."
+          sortKey: -806
+        method: POST
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/start"
+        name: POST /dots/rooms/:roomId/start
+        meta:
+          id: req_dots_start_room
+          created: 1749000000307
+          modified: 1749000000307
+          isPrivate: false
+          description: Owner only. Requires two players (player0 + player1).
+          sortKey: -807
+        method: POST
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/actions/commit"
+        name: POST /dots/rooms/:roomId/actions/commit
+        meta:
+          id: req_dots_commit_action
+          created: 1749000000308
+          modified: 1749000000308
+          isPrivate: false
+          description: |-
+            Commit a game action with hash validation. Copy prevHash from serverState.hash
+            and compute expectedNextHash client-side. Action types are COMMIT_PLACEMENT,
+            COMMIT_CAPTURE, and SURRENDER.
+          sortKey: -808
+        method: POST
+        authentication:
+          type: bearer
+          token: "{% response 'body', 'req_dots_register01', 'b64::JC50b2tlbg==::46b', 'never' %}"
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "action": {
+                "type": "COMMIT_PLACEMENT",
+                "point": { "r": 0, "c": 0 },
+                "by": "player0"
+              },
+              "prevHash": "{{ _.prev_hash }}",
+              "expectedNextHash": "{{ _.expected_next_hash }}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+  - name: WebSocket
+    meta:
+      id: fld_dots_websocket
+      created: 1749000000400
+      modified: 1749000000400
+      sortKey: -700
+      description: Realtime gateway at `/dots/ws`. Connect, then send JSON text frames in order.
+    children:
+      - url: "{{ _.ws_url }}"
+        name: WS /dots/ws
+        meta:
+          id: ws-req_dots_gateway
+          created: 1749000000401
+          modified: 1749000000401
+          isPrivate: false
+          description: |-
+            Flow: connect, then AUTH, SUBSCRIBE, optional PRESENCE.
+
+            1. AUTH (required first):
+            {"type":"AUTH","token":"<session_token>"}
+
+            2. SUBSCRIBE (join room channel, receive ROOM_STATE):
+            {"type":"SUBSCRIBE","roomId":"<room_uuid>"}
+
+            3. PRESENCE (acting player only, during playing):
+            {"type":"PRESENCE","roomId":"<room_uuid>","patch":{"mode":"play","pendingDot":null,"chainStart":null,"chainPath":[]}}
+
+            Server events: ROOM_STATE, STATE_DELTA, PRESENCE_DELTA (each includes full room detail).          sortKey: -701
+        settings:
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+
+environments:
+  name: Base Environment
+  meta:
+    id: env_dots_base
+    created: 1749000000000
+    modified: 1749000000000
+    isPrivate: false
+  data:
+    base_url: http://localhost:3030
+    ws_url: ws://localhost:3030/dots/ws
+    accept_language: en
+    display_name: Alice
+    room_name: Test room
+    board_rows: 10
+    board_cols: 10
+    room_id: ""
+    prev_hash: ""
+    expected_next_hash: ""

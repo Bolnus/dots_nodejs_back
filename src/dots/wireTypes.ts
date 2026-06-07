@@ -2,8 +2,7 @@ import type { Request as ExpressRequest } from "express";
 
 import type { en } from "../locales/en.js";
 import type { DotsLocalState } from "./localStateWire.js";
-import type { DotsServerGameState } from "./game-synced/types.js";
-import type { PlayerId } from "./game-synced/types.js";
+import type { DotsServerGameState, PlayerId, ReduceServerRejectReason } from "./game-synced/types.js";
 
 /** Authenticated dots user attached to API requests. */
 export type AuthUser = Readonly<{
@@ -95,7 +94,7 @@ export type DotsRoomEvent =
   | Readonly<{ type: "STATE_DELTA"; room: DotsRoomDetail }>
   | Readonly<{ type: "PRESENCE_DELTA"; room: DotsRoomDetail }>;
 
-export type CommitRejectReason = "prevHash" | "badHash" | "notAuthorized" | "notInGame";
+export type CommitRejectReason = "prevHash" | "badHash" | "notAuthorized" | "notInGame" | ReduceServerRejectReason;
 
 export type CommitActionResult =
   | Readonly<{ status: "ok" }>

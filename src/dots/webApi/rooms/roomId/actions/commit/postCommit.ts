@@ -34,10 +34,11 @@ async function commitAction(
     return { status: "rejected", reason: "prevHash", snapshot: mapRoomToDetail(room) };
   }
 
-  const nextState = reduceServer(state, body.action);
-  if (nextState === state) {
-    return { status: "rejected", reason: "notAuthorized", snapshot: mapRoomToDetail(room) };
+  const reduced = reduceServer(state, body.action);
+  if (!reduced.ok) {
+    return { status: "rejected", reason: reduced.reason, snapshot: mapRoomToDetail(room) };
   }
+  const nextState = reduced.state;
   if (nextState.hash !== body.expectedNextHash) {
     return { status: "rejected", reason: "badHash", snapshot: mapRoomToDetail(room) };
   }

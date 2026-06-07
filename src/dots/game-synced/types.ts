@@ -51,3 +51,18 @@ export type DotsServerAction =
   | Readonly<{ type: "COMMIT_PLACEMENT"; point: GridPoint; by: PlayerId }>
   | Readonly<{ type: "COMMIT_CAPTURE"; ring: GridPoint[]; by: PlayerId }>
   | Readonly<{ type: "SURRENDER"; by: PlayerId }>;
+
+/** Why `reduceServer` left state unchanged for a committed action. */
+export type ReduceServerRejectReason =
+  | "gameNotInPlay"
+  | "notYourTurn"
+  | "invalidPlacementCell"
+  | "captureRingTooShort"
+  | "invalidCaptureStarter"
+  | "captureRingVerticesInvalid"
+  | "invalidCapture";
+
+/** Outcome of applying one committed action to authoritative server state. */
+export type ReduceServerResult =
+  | Readonly<{ ok: true; state: DotsServerGameState }>
+  | Readonly<{ ok: false; reason: ReduceServerRejectReason; state: DotsServerGameState }>;

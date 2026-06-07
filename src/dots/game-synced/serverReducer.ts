@@ -1,6 +1,15 @@
 import { applyCapture, computeCapture, computeScoresFromGridAndPolygons } from "./logic.js";
 import { computeServerStateHash } from "./serverState.js";
-import type { CellState, DotsServerAction, DotsServerGameState, FilledPolygon, GridPoint, PlayerId } from "./types.js";
+import type {
+  CellState,
+  DotsServerAction,
+  DotsServerGameState,
+  FilledPolygon,
+  GridPoint,
+  PlayerId,
+  ReduceServerRejectReason,
+  ReduceServerResult
+} from "./types.js";
 
 /** Player whose turn it is to place a dot next, based on parity of committed placements. */
 export function currentServerPlacingPlayer(state: DotsServerGameState): PlayerId {
@@ -23,24 +32,36 @@ function withHashAndVersion(next: Omit<DotsServerGameState, "hash">): DotsServer
   return { ...bumped, hash: computeServerStateHash(bumped) };
 }
 
+/** Builds a reducer rejection that preserves the incoming authoritative state. */
+function reject(state: DotsServerGameState, reason: ReduceServerRejectReason): ReduceServerResult {
+  return { ok: false, reason, state };
+}
+
+/** Builds a reducer success with the next authoritative state. */
+function accept(state: DotsServerGameState): ReduceServerResult {
+  return { ok: true, state };
+}
+
 /** Applies a committed dot placement (no-op when invalid). */
-function applyCommitPlacement(state: DotsServerGameState, point: GridPoint, by: PlayerId): DotsServerGameState {
+function applyCommitPlacement(state: DotsServerGameState, point: GridPoint, by: PlayerId): ReduceServerResult {
   if (state.mode !== "play") {
-    return state;
+    return reject(state, "gameNotInPlay");
   }
   if (currentServerPlacingPlayer(state) !== by) {
-    return state;
+    return reject(state, "notYourTurn");
   }
   const targetCell = state.cells[point.r]?.[point.c];
   if (!targetCell || targetCell.blocked || targetCell.owner !== null) {
-    return state;
+    return reject(state, "invalidPlacementCell");
   }
   const cells = cellsWithDot(state.cells, point, by);
-  return withHashAndVersion({
-    ...state,
-    cells,
-    dotsPlacedCount: state.dotsPlacedCount + 1
-  });
+  return accept(
+    withHashAndVersion({
+      ...state,
+      cells,
+      dotsPlacedCount: state.dotsPlacedCount + 1
+    })
+  );
 }
 
 /** True when every non-start vertex is already an own, unblocked dot of `by`. */
@@ -56,54 +77,58 @@ function ringVerticesAreOwn(cells: CellState[][], ring: GridPoint[], by: PlayerI
 }
 
 /** Applies a committed capture: places the chain starter, then the enclosure, in one step. */
-function applyCommitCapture(state: DotsServerGameState, ring: GridPoint[], by: PlayerId): DotsServerGameState {
+function applyCommitCapture(state: DotsServerGameState, ring: GridPoint[], by: PlayerId): ReduceServerResult {
   if (state.mode !== "play") {
-    return state;
+    return reject(state, "gameNotInPlay");
   }
   if (currentServerPlacingPlayer(state) !== by) {
-    return state;
+    return reject(state, "notYourTurn");
   }
   if (ring.length < 3) {
-    return state;
+    return reject(state, "captureRingTooShort");
   }
   const [starter] = ring;
   const starterCell = state.cells[starter.r]?.[starter.c];
   if (!starterCell || starterCell.blocked || starterCell.owner !== null) {
-    return state;
+    return reject(state, "invalidCaptureStarter");
   }
   const cellsWithStarter = cellsWithDot(state.cells, starter, by);
   if (!ringVerticesAreOwn(cellsWithStarter, ring, by)) {
-    return state;
+    return reject(state, "captureRingVerticesInvalid");
   }
   const capture = computeCapture(cellsWithStarter, ring, by);
   if (!capture) {
-    return state;
+    return reject(state, "invalidCapture");
   }
   const cellsAfter = applyCapture(cellsWithStarter, capture);
   const newPolygon: FilledPolygon = { owner: by, ring: capture.ring };
   const polygons = [...state.polygons, newPolygon];
   const scores = computeScoresFromGridAndPolygons(cellsAfter, polygons);
-  return withHashAndVersion({
-    ...state,
-    cells: cellsAfter,
-    scores,
-    polygons,
-    dotsPlacedCount: state.dotsPlacedCount + 1
-  });
+  return accept(
+    withHashAndVersion({
+      ...state,
+      cells: cellsAfter,
+      scores,
+      polygons,
+      dotsPlacedCount: state.dotsPlacedCount + 1
+    })
+  );
 }
 
 /** Ends the game with the opponent as the winner. */
-function applySurrender(state: DotsServerGameState, by: PlayerId): DotsServerGameState {
+function applySurrender(state: DotsServerGameState, by: PlayerId): ReduceServerResult {
   if (state.mode !== "play") {
-    return state;
+    return reject(state, "gameNotInPlay");
   }
   const winner: PlayerId = by === "player0" ? "player1" : "player0";
-  return withHashAndVersion({
-    ...state,
-    mode: "ended",
-    winner,
-    surrenderedBy: by
-  });
+  return accept(
+    withHashAndVersion({
+      ...state,
+      mode: "ended",
+      winner,
+      surrenderedBy: by
+    })
+  );
 }
 
 /** True when at least one intersection can still receive a dot. */
@@ -139,12 +164,22 @@ function maybeEndOnBoardFull(state: DotsServerGameState): DotsServerGameState {
 }
 
 /** Pure server-side reducer for authoritative dots state. */
-export function reduceServer(state: DotsServerGameState, action: DotsServerAction): DotsServerGameState {
+export function reduceServer(state: DotsServerGameState, action: DotsServerAction): ReduceServerResult {
   switch (action.type) {
-    case "COMMIT_PLACEMENT":
-      return maybeEndOnBoardFull(applyCommitPlacement(state, action.point, action.by));
-    case "COMMIT_CAPTURE":
-      return maybeEndOnBoardFull(applyCommitCapture(state, action.ring, action.by));
+    case "COMMIT_PLACEMENT": {
+      const placement = applyCommitPlacement(state, action.point, action.by);
+      if (!placement.ok) {
+        return placement;
+      }
+      return accept(maybeEndOnBoardFull(placement.state));
+    }
+    case "COMMIT_CAPTURE": {
+      const capture = applyCommitCapture(state, action.ring, action.by);
+      if (!capture.ok) {
+        return capture;
+      }
+      return accept(maybeEndOnBoardFull(capture.state));
+    }
     case "SURRENDER":
       return applySurrender(state, action.by);
     default: {

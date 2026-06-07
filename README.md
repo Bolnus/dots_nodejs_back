@@ -402,7 +402,21 @@ Rejection (still `200`):
 }
 ```
 
-`reason`: `"prevHash"` | `"badHash"` | `"notAuthorized"` | `"notInGame"`.
+`reason`:
+
+| Value | When |
+|-------|------|
+| `prevHash` | Client `prevHash` does not match current server state |
+| `badHash` | Reducer output hash does not match client `expectedNextHash` |
+| `notAuthorized` | Caller is not allowed to commit this action (locked-player / turn gate) |
+| `notInGame` | Room is not in `playing` or has no `serverState` |
+| `gameNotInPlay` | `serverState.mode` is not `"play"` |
+| `notYourTurn` | `action.by` is not the current placing player |
+| `invalidPlacementCell` | Placement target is missing, blocked, or already owned |
+| `captureRingTooShort` | Capture ring has fewer than 3 vertices |
+| `invalidCaptureStarter` | Capture starter cell is missing, blocked, or already owned |
+| `captureRingVerticesInvalid` | Non-starter ring vertices are not own unblocked dots |
+| `invalidCapture` | Enclosure geometry fails server capture rules |
 
 On success, broadcasts `STATE_DELTA`. When the game ends (`serverState.mode === "ended"`), room becomes `finished` and locked player memberships are released.
 
