@@ -9,7 +9,7 @@ import type { DotsServerAction, DotsServerGameState, PlayerId } from "../game-sy
 import { aiPlayerSlot } from "../aiPlayerService.js";
 import { loadRoom } from "../roomService.js";
 import { DOTS_SERVER_ACTION_TOOLS } from "./llmGameConsts.js";
-import { buildLlmTurnMessages } from "./llmGamePrompts.js";
+import { buildLlmTurnMessages, buildMissingToolCallError } from "./llmGamePrompts.js";
 import { toLlmGameState } from "./llmGameState.js";
 import type { LlmGameStatePayload } from "./llmGameTypes.js";
 import { parseDotsServerActionFromTool } from "./llmGameTools.js";
@@ -75,6 +75,9 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
   let toolResult;
   try {
     toolResult = await chatWithLlmTools(buildLlmTurnMessages(context.gameState, priorErrors), DOTS_SERVER_ACTION_TOOLS);
+    if (toolResult.assistantContent) {
+      console.log(toolResult.assistantContent);
+    }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "LLM request failed";
     priorErrors.push(message);
@@ -85,7 +88,7 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
     if (toolResult.assistantContent !== null && toolResult.assistantContent !== "") {
       await postAiChatMessage(roomId, toolResult.assistantContent);
     }
-    priorErrors.push("Llm did not return a tool call");
+    priorErrors.push(buildMissingToolCallError(toolResult.assistantContent));
     return false;
   }
 
@@ -123,6 +126,7 @@ async function runAiTurn(roomId: string): Promise<void> {
       return;
     }
   }
+  console.log("priorErrors", priorErrors);
 
   const room = await loadRoom(roomId);
   const aiSlot = aiPlayerSlot(room);
