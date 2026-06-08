@@ -17,9 +17,12 @@ export function buildLlmSystemPrompt(): string {
     "- Captured cells become blocked; enclosed opponent dots score for the capturer.",
     "- When the board is full, higher score wins.",
     "- Call SURRENDER if you cannot possibly win given the current scores and remaining playable cells.",
-    "- Your goal is to capture opponent's dots.",
-    "- If the opponent is about to capture your dots, try to protect them if possible.",
-    "Always set `by` to your assigned player id (`yourPlayer` in the game state)."
+    "- Your first goal is to capture opponent's dots.",
+    "Make sure the dots you are planning to capture are not protected by the field borders.",
+    "- Your second goal is to analyze wheather any of your dots are in danger of being captured.",
+    "If the opponent is definetly going to capture your dots,",
+    "try to protect them by placing your dots in a way that will block the opponent's capture.",
+    "- Always set `by` to your assigned player id (`yourPlayer` in the game state)."
   ].join("\n");
 }
 
@@ -59,7 +62,10 @@ export function buildCommitRejectedError(reason: string, action: DotsServerActio
 export function buildLlmUserMessage(gameState: LlmGameStatePayload, priorErrors: readonly string[]): string {
   const payload = JSON.stringify(gameState);
   if (priorErrors.length === 0) {
-    return `Current game state:\n${payload}\nMake your move: call one tool and include a brief explanation of your reasoning.`;
+    return (
+      `Current game state:\n${payload}\n` +
+      "Make your move: call one tool and include a brief explanation of your reasoning."
+    );
   }
   const errors = priorErrors.map((error, index) => `${index + 1}. ${error}`).join("\n");
   return `Current game state:\n${payload}\n\nPrevious attempt errors:\n${errors}\nTry again with a valid tool call.`;
