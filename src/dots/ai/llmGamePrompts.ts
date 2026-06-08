@@ -12,6 +12,8 @@ export function buildLlmSystemPrompt(): string {
     "- Captured cells become blocked; enclosed opponent dots score for the capturer.",
     "- When the board is full, higher score wins.",
     "- Call SURRENDER if you cannot possibly win given the current scores and remaining playable cells.",
+    "- Your gole is to capture opponent's dots.",
+    "- If the opponent is about to capture your dots, try to protect them if possible.",
     "Always set `by` to your assigned player id (`yourPlayer` in the game state)."
   ].join("\n");
 }
