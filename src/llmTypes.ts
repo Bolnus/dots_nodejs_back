@@ -5,9 +5,10 @@ export type LlmContextMessage = {
   content: string;
 };
 
-/** Result of an LLM completion that invoked a tool. */
+/** Result of an LLM tool-calling completion. */
 export type LlmToolCallResult = Readonly<{
-  toolName: string;
-  argumentsJson: string;
+  toolName: string | null;
+  argumentsJson: string | null;
   assistantContent: string | null;
+  hasToolCall: boolean;
 }>;

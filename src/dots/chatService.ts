@@ -72,11 +72,6 @@ function mapChatMessage(
   };
 }
 
-/** Broadcasts a new chat message to subscribed WebSocket clients. */
-function broadcastChatMessage(roomId: string, message: DotsChatMessage): void {
-  broadcastRoomEvent(roomId, { type: "CHAT_MESSAGE", roomId, message });
-}
-
 /** Persists a chat message and broadcasts it to the room. */
 async function persistChatMessage(
   roomId: string,
@@ -90,7 +85,7 @@ async function persistChatMessage(
     include: { senderUser: { select: { displayName: true } } }
   });
   const message = mapChatMessage(row);
-  broadcastChatMessage(roomId, message);
+  broadcastRoomEvent(roomId, { type: "CHAT_MESSAGE", roomId, message });
   return message;
 }
 

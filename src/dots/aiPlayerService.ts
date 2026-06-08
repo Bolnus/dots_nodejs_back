@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import { DotsRoomMemberRole, DotsRoomStatus } from "@prisma/client";
+import { DotsRoomMemberRole, DotsRoomStatus, type Prisma } from "@prisma/client";
 
 import { LLM_MODEL } from "../config.js";
 import { prisma } from "../db/prisma.js";
@@ -32,6 +32,30 @@ export async function removeAiPlayer(roomId: string, aiUserId: string): Promise<
   await prisma.dotsUser.deleteMany({ where: { id: aiUserId } });
 }
 
+type CreateAiPlayerArgs = Readonly<{
+  roomId: string;
+  modelName: string;
+  sessionTokenHash: string;
+}>;
+
+/** Creates a synthetic AI user, membership, and room reference within a transaction. */
+async function createAiPlayerInRoom(tx: Prisma.TransactionClient, args: CreateAiPlayerArgs): Promise<void> {
+  const aiUser = await tx.dotsUser.create({
+    data: {
+      displayName: args.modelName,
+      normalizedName: aiNormalizedName(args.roomId),
+      sessionTokenHash: args.sessionTokenHash
+    }
+  });
+  await tx.dotsRoomMember.create({
+    data: { roomId: args.roomId, userId: aiUser.id, role: DotsRoomMemberRole.PLAYER1 }
+  });
+  await tx.dotsRoom.update({
+    where: { id: args.roomId },
+    data: { aiPlayerUserId: aiUser.id }
+  });
+}
+
 /** Adds an LLM opponent to player1 in a waiting room owned by `userId`. */
 export async function addAiPlayer(userId: string, roomId: string): Promise<AddAiResult> {
   const room = await loadRoom(roomId);
@@ -51,22 +75,7 @@ export async function addAiPlayer(userId: string, roomId: string): Promise<AddAi
   const modelName = LLM_MODEL.trim();
   const sessionTokenHash = createHash("sha256").update(randomBytes(32)).digest("hex");
 
-  await prisma.$transaction(async (tx) => {
-    const aiUser = await tx.dotsUser.create({
-      data: {
-        displayName: modelName,
-        normalizedName: aiNormalizedName(roomId),
-        sessionTokenHash
-      }
-    });
-    await tx.dotsRoomMember.create({
-      data: { roomId, userId: aiUser.id, role: DotsRoomMemberRole.PLAYER1 }
-    });
-    await tx.dotsRoom.update({
-      where: { id: roomId },
-      data: { aiPlayerUserId: aiUser.id }
-    });
-  });
+  await prisma.$transaction((tx) => createAiPlayerInRoom(tx, { roomId, modelName, sessionTokenHash }));
 
   const detail = await saveAndBroadcast(roomId, {}, "STATE_DELTA");
   return { modelName, room: detail };

@@ -1,5 +1,5 @@
 import type { LlmContextMessage } from "../../llmTypes.js";
-import type { LlmGameStatePayload } from "./llmGameState.js";
+import type { LlmGameStatePayload } from "./llmGameTypes.js";
 
 /** Builds the system prompt describing dots rules and tool usage for the LLM. */
 export function buildLlmSystemPrompt(): string {

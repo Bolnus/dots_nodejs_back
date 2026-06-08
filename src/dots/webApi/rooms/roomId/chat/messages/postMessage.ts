@@ -8,10 +8,10 @@ import type { DotsRequest } from "../../../../../wireTypes.js";
 /** Posts a chat message from a room member (not forwarded to the LLM). */
 export async function postMessage(req: DotsRequest, res: ExpressResponse): Promise<void> {
   const body = req.body as { content?: string };
-  if (!req.dotsUser || typeof body.content !== "string") {
+  if (typeof body.content !== "string") {
     sendDotsError(res, req.languageCode, new DotsApiError(400, "dotsInternal"));
     return;
   }
-  const message = await postChatMessage(roomIdParam(req), req.dotsUser.id, body.content);
+  const message = await postChatMessage(roomIdParam(req), req.dotsUser!.id, body.content);
   res.status(201).json(message);
 }

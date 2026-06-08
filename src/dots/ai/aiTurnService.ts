@@ -8,9 +8,11 @@ import { currentServerPlacingPlayer } from "../game-synced/serverReducer.js";
 import type { DotsServerAction, DotsServerGameState, PlayerId } from "../game-synced/types.js";
 import { aiPlayerSlot } from "../aiPlayerService.js";
 import { loadRoom } from "../roomService.js";
+import { DOTS_SERVER_ACTION_TOOLS } from "./llmGameConsts.js";
 import { buildLlmTurnMessages } from "./llmGamePrompts.js";
 import { toLlmGameState } from "./llmGameState.js";
-import { DOTS_SERVER_ACTION_TOOLS, parseDotsServerActionFromTool } from "./llmGameTools.js";
+import type { LlmGameStatePayload } from "./llmGameTypes.js";
+import { parseDotsServerActionFromTool } from "./llmGameTools.js";
 
 const roomTurnLocks = new Map<string, Promise<void>>();
 
@@ -30,12 +32,7 @@ function isAiTurn(room: Awaited<ReturnType<typeof loadRoom>>): boolean {
   return currentServerPlacingPlayer(state) === slot;
 }
 
-/** Formats a commit rejection or LLM error for the retry prompt. */
-function formatAttemptError(reason: string): string {
-  return reason;
-}
-
-/** Builds the chat text persisted after a successful or failed AI action. */
+/** Builds the chat text persisted after a successful AI action. */
 function buildAiChatContent(toolName: string, assistantContent: string | null, action: DotsServerAction): string {
   const actionSummary = JSON.stringify(action);
   if (assistantContent !== null && assistantContent !== "") {
@@ -53,7 +50,7 @@ async function forceAiSurrender(roomId: string, aiSlot: PlayerId): Promise<void>
 
 type AiTurnContext = Readonly<{
   aiSlot: PlayerId;
-  gameState: NonNullable<ReturnType<typeof toLlmGameState>>;
+  gameState: LlmGameStatePayload;
 }>;
 
 /** Loads room context for an AI turn or returns null when the turn is no longer valid. */
@@ -78,26 +75,33 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
   let toolResult;
   try {
     toolResult = await chatWithLlmTools(buildLlmTurnMessages(context.gameState, priorErrors), DOTS_SERVER_ACTION_TOOLS);
-    console.log("toolResult", toolResult.assistantContent || toolResult.argumentsJson);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "LLM request failed";
-    priorErrors.push(formatAttemptError(message));
+    priorErrors.push(message);
+    return false;
+  }
+
+  if (!toolResult.hasToolCall || toolResult.toolName === null || toolResult.argumentsJson === null) {
+    if (toolResult.assistantContent !== null && toolResult.assistantContent !== "") {
+      await postAiChatMessage(roomId, toolResult.assistantContent);
+    }
+    priorErrors.push("Llm did not return a tool call");
     return false;
   }
 
   const action = parseDotsServerActionFromTool(toolResult.toolName, toolResult.argumentsJson);
   if (action === null) {
-    priorErrors.push(formatAttemptError(`Invalid tool arguments for ${toolResult.toolName}`));
+    priorErrors.push(`Invalid tool arguments for ${toolResult.toolName}`);
     return false;
   }
   if (action.by !== context.aiSlot) {
-    priorErrors.push(formatAttemptError(`Action must be by ${context.aiSlot}, got ${action.by}`));
+    priorErrors.push(`Action must be by ${context.aiSlot}, got ${action.by}`);
     return false;
   }
 
   const result = await commitAction(roomId, undefined, action, { kind: "ai" });
   if (result.status === "rejected") {
-    priorErrors.push(formatAttemptError(result.reason));
+    priorErrors.push(result.reason);
     return false;
   }
 
@@ -120,7 +124,6 @@ async function runAiTurn(roomId: string): Promise<void> {
     }
   }
 
-  console.log("priorErrors", priorErrors);
   const room = await loadRoom(roomId);
   const aiSlot = aiPlayerSlot(room);
   if (aiSlot !== null && isAiTurn(room)) {

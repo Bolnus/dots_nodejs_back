@@ -1,18 +1,8 @@
 import { currentServerPlacingPlayer } from "../game-synced/serverReducer.js";
-import type { DotsServerGameState, PlayerId } from "../game-synced/types.js";
+import type { DotsServerGameState } from "../game-synced/types.js";
 import { aiPlayerSlot } from "../aiPlayerService.js";
 import type { RoomWithMembers } from "../membershipConsts.js";
-
-/** Minimal gameplay payload sent to the LLM (no hash, version, or presence). */
-export type LlmGameStatePayload = Readonly<{
-  config: DotsServerGameState["config"];
-  cells: DotsServerGameState["cells"];
-  scores: DotsServerGameState["scores"];
-  polygons: DotsServerGameState["polygons"];
-  mode: DotsServerGameState["mode"];
-  currentPlayer: PlayerId;
-  yourPlayer: PlayerId;
-}>;
+import type { LlmGameStatePayload } from "./llmGameTypes.js";
 
 /** Projects authoritative server state to the minimal LLM-facing shape. */
 export function toLlmGameState(room: RoomWithMembers, state: DotsServerGameState): LlmGameStatePayload | null {
