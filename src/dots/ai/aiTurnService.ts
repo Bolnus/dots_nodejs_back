@@ -9,7 +9,12 @@ import type { DotsServerAction, DotsServerGameState, PlayerId } from "../game-sy
 import { aiPlayerSlot } from "../aiPlayerService.js";
 import { loadRoom } from "../roomService.js";
 import { DOTS_SERVER_ACTION_TOOLS } from "./llmGameConsts.js";
-import { buildLlmTurnMessages, buildMissingToolCallError } from "./llmGamePrompts.js";
+import {
+  buildCommitRejectedError,
+  buildInvalidToolArgumentsError,
+  buildLlmTurnMessages,
+  buildMissingToolCallError
+} from "./llmGamePrompts.js";
 import { toLlmGameState } from "./llmGameState.js";
 import type { LlmGameStatePayload } from "./llmGameTypes.js";
 import { parseDotsServerActionFromTool } from "./llmGameTools.js";
@@ -94,7 +99,7 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
 
   const action = parseDotsServerActionFromTool(toolResult.toolName, toolResult.argumentsJson);
   if (action === null) {
-    priorErrors.push(`Invalid tool arguments for ${toolResult.toolName}`);
+    priorErrors.push(buildInvalidToolArgumentsError(toolResult.toolName, toolResult.argumentsJson));
     return false;
   }
   if (action.by !== context.aiSlot) {
@@ -104,7 +109,7 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
 
   const result = await commitAction(roomId, undefined, action, { kind: "ai" });
   if (result.status === "rejected") {
-    priorErrors.push(result.reason);
+    priorErrors.push(buildCommitRejectedError(result.reason, action));
     return false;
   }
 

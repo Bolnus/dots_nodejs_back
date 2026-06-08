@@ -1,4 +1,9 @@
 import type { DotsServerAction, GridPoint, PlayerId } from "../game-synced/types.js";
+import {
+  COMMIT_CAPTURE_TOOL_ARGUMENTS_JSON,
+  COMMIT_PLACEMENT_TOOL_ARGUMENTS_JSON,
+  SURRENDER_TOOL_ARGUMENTS_JSON
+} from "./llmGameConsts.js";
 
 /** Parses a grid point from raw LLM tool arguments. */
 function parseGridPoint(raw: unknown): GridPoint | null {
@@ -61,6 +66,20 @@ function parseCaptureAction(args: Record<string, unknown>): DotsServerAction | n
     return null;
   }
   return { type: "COMMIT_CAPTURE", ring, by };
+}
+
+/** Describes the JSON shape expected for a given tool name. */
+export function describeExpectedToolArguments(toolName: string): string {
+  switch (toolName) {
+    case "COMMIT_PLACEMENT":
+      return COMMIT_PLACEMENT_TOOL_ARGUMENTS_JSON;
+    case "COMMIT_CAPTURE":
+      return COMMIT_CAPTURE_TOOL_ARGUMENTS_JSON;
+    case "SURRENDER":
+      return SURRENDER_TOOL_ARGUMENTS_JSON;
+    default:
+      return "a valid JSON object for COMMIT_PLACEMENT, COMMIT_CAPTURE, or SURRENDER";
+  }
 }
 
 /** Converts a validated OpenAI tool call into a `DotsServerAction`. */

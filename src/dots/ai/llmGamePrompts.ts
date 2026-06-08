@@ -1,5 +1,7 @@
 import type { LlmContextMessage } from "../../llmTypes.js";
+import type { DotsServerAction } from "../game-synced/types.js";
 import type { LlmGameStatePayload } from "./llmGameTypes.js";
+import { describeExpectedToolArguments } from "./llmGameTools.js";
 
 /** Builds the system prompt describing dots rules and tool usage for the LLM. */
 export function buildLlmSystemPrompt(): string {
@@ -37,6 +39,20 @@ export function buildMissingToolCallError(assistantContent: string | null): stri
     `${base} You only sent text (${quoted}) without calling a tool. ` +
     `Retry with a brief explanation plus the tool call — text alone cannot submit a move.`
   );
+}
+
+/** Builds a retry error when tool arguments could not be parsed into an action. */
+export function buildInvalidToolArgumentsError(toolName: string, argumentsJson: string): string {
+  return (
+    `Invalid tool arguments for ${toolName}. ` +
+    `Expected: ${describeExpectedToolArguments(toolName)}. ` +
+    `Got: ${argumentsJson}`
+  );
+}
+
+/** Builds a retry error when the game server rejected a parsed action. */
+export function buildCommitRejectedError(reason: string, action: DotsServerAction): string {
+  return `${reason}. Provided action: ${JSON.stringify(action)}`;
 }
 
 /** Builds the user message containing the current minimal game state and any prior errors. */
