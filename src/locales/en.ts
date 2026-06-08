@@ -26,5 +26,10 @@ export const en = {
   dotsCommitCaptureRingVerticesInvalid: "The capture outline must use only your own dots.",
   dotsCommitCaptureRingNotConnected: "The capture outline must follow adjacent dots.",
   dotsCommitInvalidCapture: "That enclosure does not capture any opponent dots.",
-  dotsInternal: "Something went wrong. Please try again."
+  dotsInternal: "Something went wrong. Please try again.",
+  dotsAiSlotTaken: "The second player slot is already taken.",
+  dotsAiNotPresent: "There is no AI player in this room.",
+  dotsLlmUnavailable: "The AI model is not available right now.",
+  dotsNotInRoom: "You are not a member of this room.",
+  dotsChatMessageEmpty: "Message cannot be empty."
 } as const;

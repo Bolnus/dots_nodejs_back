@@ -373,6 +373,89 @@ collection:
             store: true
           rebuildPath: true
 
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/ai"
+        name: POST /dots/rooms/:roomId/ai
+        meta:
+          id: req_dots_add_ai
+          created: 17490000003075
+          modified: 17490000003075
+          isPrivate: false
+          description: Owner only. Adds AI opponent to player1 using LLM_MODEL.
+          sortKey: -8075
+        method: POST
+        authentication:
+          type: bearer
+          token: "{{ _.token }}"
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/chat/messages"
+        name: GET /dots/rooms/:roomId/chat/messages
+        meta:
+          id: req_dots_chat_messages_get
+          created: 17490000003076
+          modified: 17490000003076
+          isPrivate: false
+          description: List chat messages for room members.
+          sortKey: -8076
+        method: GET
+        authentication:
+          type: bearer
+          token: "{{ _.token }}"
+        headers:
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/chat/messages"
+        name: POST /dots/rooms/:roomId/chat/messages
+        meta:
+          id: req_dots_chat_messages_post
+          created: 17490000003077
+          modified: 17490000003077
+          isPrivate: false
+          description: Post a chat message (not forwarded to LLM).
+          sortKey: -8077
+        method: POST
+        authentication:
+          type: bearer
+          token: "{{ _.token }}"
+        body:
+          mimeType: application/json
+          text: |
+            {
+              "content": "Hello from Insomnia"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: Accept-Language
+            value: "{{ _.accept_language }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
       - url: "{{ _.base_url }}/dots/rooms/{{ _.room_id }}/actions/commit"
         name: POST /dots/rooms/:roomId/actions/commit
         meta:

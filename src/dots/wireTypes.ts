@@ -32,13 +32,38 @@ export type DotsErrorCode = keyof Pick<
   | "dotsUnauthorized"
   | "dotsNotInGame"
   | "dotsInternal"
+  | "dotsAiSlotTaken"
+  | "dotsAiNotPresent"
+  | "dotsLlmUnavailable"
+  | "dotsNotInRoom"
+  | "dotsChatMessageEmpty"
 >;
 
 export type DotsRoomStatus = "waiting" | "playing" | "finished";
 
 export type DotsBoardConfig = Readonly<{ rows: number; cols: number }>;
 
-export type DotsOnlineUser = Readonly<{ userId: string; displayName: string }>;
+export type DotsOnlineUser = Readonly<{ userId: string; displayName: string; isAi?: boolean }>;
+
+export type DotsChatSenderKind = "ai" | "player" | "viewer";
+
+export type DotsChatMessage = Readonly<{
+  id: string;
+  senderKind: DotsChatSenderKind;
+  senderUserId: string | null;
+  senderDisplayName: string | null;
+  content: string;
+  createdAtMs: number;
+}>;
+
+export type AddAiResult = Readonly<{
+  modelName: string;
+  room: DotsRoomDetail;
+}>;
+
+export type ListChatMessagesResult = Readonly<{
+  messages: readonly DotsChatMessage[];
+}>;
 
 export type DotsRoomPlayer = Readonly<{ slot: PlayerId; user: DotsOnlineUser }>;
 
@@ -92,7 +117,8 @@ export type DotsRoomDetail = Readonly<{
 export type DotsRoomEvent =
   | Readonly<{ type: "ROOM_STATE"; room: DotsRoomDetail }>
   | Readonly<{ type: "STATE_DELTA"; room: DotsRoomDetail }>
-  | Readonly<{ type: "PRESENCE_DELTA"; room: DotsRoomDetail }>;
+  | Readonly<{ type: "PRESENCE_DELTA"; room: DotsRoomDetail }>
+  | Readonly<{ type: "CHAT_MESSAGE"; roomId: string; message: DotsChatMessage }>;
 
 export type CommitRejectReason = "prevHash" | "badHash" | "notAuthorized" | "notInGame" | ReduceServerRejectReason;
 

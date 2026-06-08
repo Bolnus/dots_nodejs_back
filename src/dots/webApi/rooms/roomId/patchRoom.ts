@@ -5,6 +5,7 @@ import { prisma } from "../../../../db/prisma.js";
 import { hashPassword } from "../../../auth.js";
 import { DotsApiError } from "../../../errors.js";
 import { roomIdParam } from "../../../dotsRequest.js";
+import { kickAiPlayerIfNeeded } from "../../../aiPlayerService.js";
 import { loadRoom, saveAndBroadcast, validateBoard } from "../../../roomService.js";
 import type { DotsBoardConfig, DotsRequest, DotsRoomDetail } from "../../../wireTypes.js";
 
@@ -35,6 +36,7 @@ async function patchRoom(
     data.passwordHash = body.password === "" ? null : hashPassword(body.password);
   }
   if (body.kickUserId !== undefined && body.kickUserId !== room.ownerUserId) {
+    await kickAiPlayerIfNeeded(roomId, body.kickUserId, room.aiPlayerUserId);
     await prisma.dotsRoomMember.deleteMany({
       where: { roomId, userId: body.kickUserId }
     });

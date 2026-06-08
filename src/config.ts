@@ -80,3 +80,6 @@ export const LLM_OPTIONS = {
   top_k: optionalNumber("LLM_TOP_K", 40),
   num_ctx: optionalNumber("LLM_NUM_CTX", 8192)
 } as const;
+
+/** Maximum LLM retry attempts per AI turn before the AI surrenders. */
+export const LLM_MAX_RETRIES = optionalNumber("LLM_MAX_RETRIES", 3);

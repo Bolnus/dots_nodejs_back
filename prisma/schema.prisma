@@ -18,16 +18,24 @@ enum DotsRoomMemberRole {
   VIEWER
 }
 
+enum DotsChatSenderKind {
+  AI
+  PLAYER
+  VIEWER
+}
+
 model DotsUser {
-  id               String           @id @default(uuid())
+  id               String              @id @default(uuid())
   displayName      String
-  normalizedName   String           @unique
+  normalizedName   String              @unique
   sessionTokenHash String
-  lastSeenAt       DateTime         @default(now())
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  lastSeenAt       DateTime            @default(now())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   members          DotsRoomMember[]
-  ownedRooms       DotsRoom[]       @relation("RoomOwner")
+  ownedRooms       DotsRoom[]          @relation("RoomOwner")
+  aiRooms          DotsRoom[]          @relation("RoomAiPlayer")
+  chatMessages     DotsChatMessage[]
 }
 
 model DotsRoom {
@@ -35,6 +43,8 @@ model DotsRoom {
   name                String
   ownerUserId         String
   owner               DotsUser         @relation("RoomOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  aiPlayerUserId      String?
+  aiPlayer            DotsUser?        @relation("RoomAiPlayer", fields: [aiPlayerUserId], references: [id], onDelete: SetNull)
   status              DotsRoomStatus   @default(WAITING)
   isPrivate           Boolean          @default(false)
   passwordHash        String?
@@ -47,6 +57,28 @@ model DotsRoom {
   lockedPlayer1UserId String?
   createdAt           DateTime         @default(now())
   members             DotsRoomMember[]
+  chat                DotsChat?
+}
+
+model DotsChat {
+  id        String            @id @default(uuid())
+  roomId    String            @unique
+  room      DotsRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+  messages  DotsChatMessage[]
+}
+
+model DotsChatMessage {
+  id           String             @id @default(uuid())
+  chatId       String
+  chat         DotsChat           @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderKind   DotsChatSenderKind
+  senderUserId String?
+  senderUser   DotsUser?          @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  content      String
+  createdAt    DateTime           @default(now())
+
+  @@index([chatId, createdAt])
 }
 
 model DotsRoomMember {

@@ -5,6 +5,9 @@ import { DotsApiError, sendDotsError } from "../errors.js";
 import type { DotsRequest } from "../wireTypes.js";
 import { getRooms } from "./rooms/getRooms.js";
 import { postRoom } from "./rooms/postRoom.js";
+import { postAi } from "./rooms/roomId/ai/postAi.js";
+import { getMessages } from "./rooms/roomId/chat/messages/getMessages.js";
+import { postMessage } from "./rooms/roomId/chat/messages/postMessage.js";
 import { postCommit } from "./rooms/roomId/actions/commit/postCommit.js";
 import { getRoomById } from "./rooms/roomId/getRoom.js";
 import { postJoin } from "./rooms/roomId/join/postJoin.js";
@@ -127,6 +130,21 @@ export function createDotsRouter(): Router {
     "/rooms/:roomId/actions/commit",
     requireAuth,
     handleDotsRoute((req, res) => postCommit(req, res))
+  );
+  router.post(
+    "/rooms/:roomId/ai",
+    requireAuth,
+    handleDotsRoute((req, res) => postAi(req, res))
+  );
+  router.get(
+    "/rooms/:roomId/chat/messages",
+    requireAuth,
+    handleDotsRoute((req, res) => getMessages(req, res))
+  );
+  router.post(
+    "/rooms/:roomId/chat/messages",
+    requireAuth,
+    handleDotsRoute((req, res) => postMessage(req, res))
   );
 
   return router;

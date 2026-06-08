@@ -26,5 +26,10 @@ export const ru = {
   dotsCommitCaptureRingVerticesInvalid: "Контур захвата должен состоять только из ваших точек.",
   dotsCommitCaptureRingNotConnected: "Контур захвата должен проходить по соседним точкам.",
   dotsCommitInvalidCapture: "Этот контур не захватывает точки соперника.",
-  dotsInternal: "Произошла ошибка. Попробуйте снова."
+  dotsInternal: "Произошла ошибка. Попробуйте снова.",
+  dotsAiSlotTaken: "Второй слот игрока уже занят.",
+  dotsAiNotPresent: "В этой комнате нет ИИ-игрока.",
+  dotsLlmUnavailable: "Модель ИИ сейчас недоступна.",
+  dotsNotInRoom: "Вы не состоите в этой комнате.",
+  dotsChatMessageEmpty: "Сообщение не может быть пустым."
 } as const;

@@ -39,6 +39,7 @@ npm start
 | `DOTS_IDLE_USER_TTL_HOURS` | no | `24` | Idle users without active membership may be purged |
 | `LLM_API_KEY` | no | `ollama` | API key for OpenAI-compatible client |
 | `LLM_TEMPERATURE`, `LLM_TOP_P`, `LLM_TOP_K`, `LLM_NUM_CTX` | no | see `src/config.ts` | LLM sampling / context |
+| `LLM_MAX_RETRIES` | no | `3` | AI turn retries before surrender |
 
 ---
 
@@ -87,6 +88,10 @@ Routes **without** auth: `POST /dots/sessions/register`, `GET /dots/rooms`, `GET
 | 409 | `dotsSettingsLocked` | PATCH room while not `waiting` |
 | 409 | `dotsNeedTwoPlayers` | Start without two players |
 | 409 | `dotsPlayingLocked` | Join as player while game in progress (use viewer) |
+| 409 | `dotsAiSlotTaken` | Second player slot already occupied |
+| 403 | `dotsNotInRoom` | Chat access without room membership |
+| 400 | `dotsChatMessageEmpty` | Empty chat message body |
+| 503 | `dotsLlmUnavailable` | LLM model not configured |
 | 500 | `dotsInternal` | Unhandled server error |
 
 ---
@@ -428,6 +433,88 @@ On success, broadcasts `STATE_DELTA`. When the game ends (`serverState.mode === 
 
 **Errors:** `400`, `401`, `404`.
 
+After a successful human commit, the server may schedule an AI opponent turn when the room has an AI player and it is their turn.
+
+---
+
+#### `POST /dots/rooms/:roomId/ai`
+
+Add an AI opponent to the second player slot (`player1`). **Owner only**, room must be `waiting`, and `player1` must be free.
+
+**Auth:** required
+
+**Body:** empty
+
+**Response `200`:**
+
+```json
+{
+  "modelName": "llama3.2",
+  "room": { }
+}
+```
+
+`modelName` is the configured `LLM_MODEL`. The AI appears in `players` with `user.isAi: true` and the model name as `displayName`.
+
+Broadcasts `STATE_DELTA`.
+
+**Errors:** `401`, `403`, `404`, `409` (`dotsAiSlotTaken`, `dotsOwnerOnly`, `dotsSettingsLocked`), `503` (`dotsLlmUnavailable`).
+
+Kicking the AI uses `PATCH /dots/rooms/:roomId` with `kickUserId` set to the AI user's id.
+
+---
+
+#### `GET /dots/rooms/:roomId/chat/messages`
+
+List chat messages for a room. **Room members only** (players or viewers).
+
+**Auth:** required
+
+**Query:** `afterMs` (optional, epoch ms cursor), `limit` (optional, default 50, max 200)
+
+**Response `200`:**
+
+```json
+{
+  "messages": [
+    {
+      "id": "uuid",
+      "senderKind": "player",
+      "senderUserId": "uuid",
+      "senderDisplayName": "Alice",
+      "content": "Hello",
+      "createdAtMs": 1710000000000
+    }
+  ]
+}
+```
+
+`senderKind`: `"ai"` | `"player"` | `"viewer"`. AI messages have `senderUserId: null`.
+
+**Errors:** `401`, `403` (`dotsNotInRoom`), `404`.
+
+---
+
+#### `POST /dots/rooms/:roomId/chat/messages`
+
+Post a chat message. **Not forwarded to the LLM.**
+
+**Auth:** required (room member)
+
+**Body:**
+
+```json
+{
+  "content": "Hello"
+}
+```
+
+**Response `201`:** `DotsChatMessage`
+
+Broadcasts `CHAT_MESSAGE` to WebSocket subscribers.
+
+**Errors:** `400` (`dotsChatMessageEmpty`), `401`, `403`, `404`.
+
 ---
 
 ### Room detail (`DotsRoomDetail`)
@@ -441,7 +528,8 @@ On success, broadcasts `STATE_DELTA`. When the game ends (`serverState.mode === 
   "hasPassword": false,
   "status": "waiting",
   "players": [
-    { "slot": "player0", "user": { "userId": "uuid", "displayName": "Alice" } }
+    { "slot": "player0", "user": { "userId": "uuid", "displayName": "Alice" } },
+    { "slot": "player1", "user": { "userId": "uuid", "displayName": "llama3.2", "isAi": true } }
   ],
   "viewers": [
     { "userId": "uuid", "displayName": "Bob" }
@@ -593,6 +681,7 @@ All subscribed clients on a room channel receive the same payload.
 | `ROOM_STATE` | After `SUBSCRIBE` (to subscribing client only) or room creation snapshot |
 | `STATE_DELTA` | Room/membership/settings/game state or `connectedUserIds` changed |
 | `PRESENCE_DELTA` | Ephemeral `presence` updated |
+| `CHAT_MESSAGE` | New chat message in the room |
 
 **Event shape:**
 
@@ -605,6 +694,23 @@ All subscribed clients on a room channel receive the same payload.
 
 `room` is always a full `DotsRoomDetail` (not a partial patch). Clients should replace local room state from `room`.
 
+**Chat event shape:**
+
+```json
+{
+  "type": "CHAT_MESSAGE",
+  "roomId": "uuid",
+  "message": {
+    "id": "uuid",
+    "senderKind": "ai",
+    "senderUserId": null,
+    "senderDisplayName": null,
+    "content": "Action: COMMIT_PLACEMENT …",
+    "createdAtMs": 1710000000000
+  }
+}
+```
+
 ### Disconnect
 
 On close, the server removes the client from the room channel, updates `connectedUserIds`, and broadcasts `STATE_DELTA` to remaining subscribers.
@@ -616,7 +722,7 @@ On close, the server removes the client from the room channel, updates `connecte
 - **Authoritative state:** committed moves go through `POST .../actions/commit`; the server reducer validates hashes and turn order.
 - **Realtime:** REST mutations and WebSocket presence call `broadcastRoomEvent`; delivery is in-process via `ws` room channels.
 - **CORS:** browser clients must use an origin listed in `FRONTEND_URLS`.
-- **LLM:** `LLM_*` env vars configure an internal OpenAI-compatible client (`src/llm.ts`); there is no public LLM HTTP route in this service.
+- **LLM / vs-AI:** `LLM_*` env vars configure an internal OpenAI-compatible client (`src/llm.ts`). AI turns use tool calling against `DotsServerAction`; moves are committed server-side without hash validation. `POST /dots/rooms/:roomId/ai` exposes the configured model name to clients.
 
 ---
 

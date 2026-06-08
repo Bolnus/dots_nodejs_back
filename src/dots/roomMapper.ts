@@ -45,7 +45,11 @@ export function mapRoomToDetail(room: RoomWithMembers): DotsRoomDetail {
   const viewers: DotsOnlineUser[] = [];
   for (const member of room.members) {
     const slot = roleToSlot(member.role);
-    const user = { userId: member.user.id, displayName: member.user.displayName };
+    const user = {
+      userId: member.user.id,
+      displayName: member.user.displayName,
+      isAi: room.aiPlayerUserId !== null && member.user.id === room.aiPlayerUserId
+    };
     if (slot) {
       players.push({ slot, user });
     } else {

@@ -56,6 +56,9 @@ async function createRoom(
           userId,
           role: DotsRoomMemberRole.PLAYER0
         }
+      },
+      chat: {
+        create: {}
       }
     },
     ...roomWithMembers
