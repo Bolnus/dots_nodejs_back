@@ -16,7 +16,6 @@ export function toLlmGameState(room: RoomWithMembers, state: DotsServerGameState
     scores: state.scores,
     polygons: state.polygons,
     mode: state.mode,
-    currentPlayer: currentServerPlacingPlayer(state),
     yourPlayer: slot
   };
 }

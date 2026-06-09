@@ -7,6 +7,5 @@ export type LlmGameStatePayload = Readonly<{
   scores: DotsServerGameState["scores"];
   polygons: DotsServerGameState["polygons"];
   mode: DotsServerGameState["mode"];
-  currentPlayer: PlayerId;
   yourPlayer: PlayerId;
 }>;
