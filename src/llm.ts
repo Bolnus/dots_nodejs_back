@@ -1,13 +1,13 @@
 import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
-import { LLM_API_KEY, LLM_MODEL, LLM_OPENAI_BASE_URL, LLM_OPTIONS } from "./config.js";
+import { LLM_API_KEY, LLM_HOST, LLM_MODEL, LLM_OPTIONS } from "./config.js";
 import type { LlmContextMessage, LlmToolCallResult } from "./llmTypes.js";
 
 const CHAT_TIMEOUT_MS = 120_000;
 
 const client = new OpenAI({
   apiKey: LLM_API_KEY,
-  baseURL: LLM_OPENAI_BASE_URL,
+  baseURL: LLM_HOST,
   timeout: CHAT_TIMEOUT_MS
 });
 

@@ -29,10 +29,12 @@ export function buildLlmSystemPrompt(): string {
     "Exactly one tool call — COMMIT_PLACEMENT."
     // "1. Exactly one tool call — COMMIT_PLACEMENT, COMMIT_CAPTURE, or SURRENDER — to submit your move.",
     // "2. A brief message (1–2 sentences) explaining why you chose that move.",
-    // "The tool call applies your move; the message is shown in chat. Text without a tool call does not count as a move.",
+    // "The tool call applies your move; the message is shown in chat.",
+    // Text without a tool call does not count as a move.",
     // "Rules:",
     // "- Players alternate placing dots on empty grid intersections.",
-    // "- A capture encloses opponent dots: start on an empty cell, walk through adjacent own dots, close on the start.",
+    // "- A capture encloses opponent dots: start on an empty cell,"
+    // "walk through adjacent own dots, close on the start.",
     // "- Captured cells become blocked; enclosed opponent dots score for the capturer.",
     // "- When the board is full, higher score wins.",
     // "- Call SURRENDER if you cannot possibly win given the current scores and remaining playable cells.",

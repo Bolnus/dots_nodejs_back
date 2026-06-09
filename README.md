@@ -31,7 +31,7 @@ npm start
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | yes | — | PostgreSQL connection string |
 | `FRONTEND_URLS` | yes | — | Comma-separated CORS allowed origins |
-| `LLM_HOST` | yes | — | Ollama (or compatible) base URL, e.g. `http://localhost:11434` |
+| `LLM_HOST` | yes | — | OpenAI-compatible base URL (Ollama: `http://localhost:11434/v1`) |
 | `LLM_MODEL` | yes | — | Model name for internal LLM client |
 | `EXPRESS_HOST` | no | `0.0.0.0` | HTTP bind host |
 | `EXPRESS_PORT` / `PORT` | no | `3030` | HTTP port |

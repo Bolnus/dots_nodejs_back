@@ -65,11 +65,10 @@ export const FRONTEND_URLS = getEnvFrontendUrls();
 export const DOTS_MAX_ACTIVE_ROOMS = optionalNumber("DOTS_MAX_ACTIVE_ROOMS", 30);
 export const DOTS_IDLE_USER_TTL_HOURS = optionalNumber("DOTS_IDLE_USER_TTL_HOURS", 24);
 
-export const LLM_HOST = stripTrailingSlashes(required("LLM_HOST"));
 export const LLM_MODEL = required("LLM_MODEL");
 
-/** OpenAI-compatible base URL (Ollama serves `/v1` on the same host). */
-export const LLM_OPENAI_BASE_URL = `${LLM_HOST}/v1`;
+/** OpenAI-compatible base URL for chat completions (Ollama: `http://localhost:11434/v1`). */
+export const LLM_HOST = stripTrailingSlashes(required("LLM_HOST"));
 
 /** Ollama ignores the key for local use; required by the OpenAI client. */
 export const LLM_API_KEY = optionalString("LLM_API_KEY", "ollama");
