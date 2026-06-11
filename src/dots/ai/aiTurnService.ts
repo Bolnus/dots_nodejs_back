@@ -79,10 +79,9 @@ async function loadAiTurnContext(roomId: string): Promise<AiTurnContext | null> 
 async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors: string[]): Promise<boolean> {
   let toolResult;
   try {
-    console.log(JSON.stringify(buildLlmTurnMessages(context.gameState, priorErrors), null, 2));
     toolResult = await chatWithLlmTools(buildLlmTurnMessages(context.gameState, priorErrors), DOTS_SERVER_ACTION_TOOLS);
-    if (toolResult.assistantContent) {
-      console.log(toolResult.assistantContent);
+    if (priorErrors.length) {
+      console.log("priorErrors", priorErrors);
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "LLM request failed";

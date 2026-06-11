@@ -24,26 +24,18 @@ export function buildLlmSystemPrompt(): string {
     "Your goal is to find which of your dots are in danger of being captured by your opponent.",
     "This would mean he needs exactly one placement to outline them and make a polygon around.",
     "You need to place your dot in an unblocked cell which your opponent needs to visit to capture your dots.",
-    "If no immediate danger is found, try to figure out the best move for the future.",
+    "Run COMMIT_PLACEMENT tool in this case.",
+    "If no immediate danger is found, try to find an aggressive move which will capture opponent's dots.",
+    "If there is a neutral unblocked cell, ",
+    "where you could place a new dot to make a polygon with your previous adjacent dots, ",
+    "run COMMIT_CAPTURE tool.",
+    "The ring parameter of COMMIT_CAPTURE tool is an array of grid points that form the polygon.",
+    "The first and last points in the ring array must be the same: your new dot, placed in neutral cell.",
+    "The rest dots in the ring array must be your previous adjacent dots.",
+    "If neither immediate danger is found, nor a polygon of yours can be made,",
+    "place your dot in a neutral cell for the future capture.",
     "Every response must include:",
-    "Exactly one tool call — COMMIT_PLACEMENT."
-    // "1. Exactly one tool call — COMMIT_PLACEMENT, COMMIT_CAPTURE, or SURRENDER — to submit your move.",
-    // "2. A brief message (1–2 sentences) explaining why you chose that move.",
-    // "The tool call applies your move; the message is shown in chat.",
-    // Text without a tool call does not count as a move.",
-    // "Rules:",
-    // "- Players alternate placing dots on empty grid intersections.",
-    // "- A capture encloses opponent dots: start on an empty cell,"
-    // "walk through adjacent own dots, close on the start.",
-    // "- Captured cells become blocked; enclosed opponent dots score for the capturer.",
-    // "- When the board is full, higher score wins.",
-    // "- Call SURRENDER if you cannot possibly win given the current scores and remaining playable cells.",
-    // "- Your first goal is to capture opponent's dots.",
-    // "Make sure the dots you are planning to capture are not protected by the field borders.",
-    // "- Your second goal is to analyze wheather any of your dots are in danger of being captured.",
-    // "If the opponent is definetly going to capture your dots,",
-    // "try to protect them by placing your dots in a way that will block the opponent's capture.",
-    // "- Always set `by` to your assigned player id (`yourPlayer` in the game state)."
+    "Exactly one tool call — COMMIT_PLACEMENT or COMMIT_CAPTURE."
   ].join("\n");
 }
 

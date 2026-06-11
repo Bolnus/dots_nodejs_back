@@ -41,6 +41,7 @@ export async function chatWithLlm(userText: string): Promise<string> {
 function mapCompletionToToolResult(message: OpenAI.Chat.ChatCompletionMessage | undefined): LlmToolCallResult {
   const assistantContent = message?.content?.trim() ?? null;
   const toolCall = message?.tool_calls?.[0];
+  console.log("toolCall", JSON.stringify(toolCall, null, 2));
 
   if (!toolCall || toolCall.type !== "function") {
     return {
