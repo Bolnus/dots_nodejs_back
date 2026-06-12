@@ -1,6 +1,9 @@
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { registerCrashReporting, writeCrashReport } from "./crashReporting.js";
 import { startArcadeServer } from "./webServer.js";
+
+registerCrashReporting();
 
 /** Starts the HTTP server and WebSocket gateway. */
 function main(): void {
@@ -10,9 +13,10 @@ function main(): void {
   startArcadeServer();
 }
 
-/** Logs startup errors and sets a non-zero exit code. */
+/** Logs startup errors, writes a crash report, and sets a non-zero exit code. */
 function reportMainError(err: unknown): void {
   console.error(err);
+  writeCrashReport("startupError", err);
   process.exitCode = 1;
 }
 
