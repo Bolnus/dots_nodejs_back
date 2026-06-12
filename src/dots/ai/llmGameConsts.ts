@@ -62,7 +62,9 @@ export const DOTS_SERVER_ACTION_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "COMMIT_PLACEMENT",
-      description: "Place a dot on an empty, unblocked grid intersection.",
+      description:
+        "Place a single dot on an empty, unblocked cell. Does not capture. " +
+        "Use to block opponentCaptureThreats or develop when validCaptures is empty.",
       parameters: COMMIT_PLACEMENT_TOOL_ARGUMENTS
     }
   },
@@ -71,7 +73,10 @@ export const DOTS_SERVER_ACTION_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
     function: {
       name: "COMMIT_CAPTURE",
       description:
-        "Capture opponent dots by enclosing an area. Ring starts empty, visits adjacent own dots, closes on start.",
+        "Capture opponent dots when your dots almost form a closed 8-adjacent loop. " +
+        "ring[0] is the new empty starter cell; ring[1..] are your existing dots in walk order; " +
+        "repeat ring[0] at the end. Must enclose at least one opponent dot inside. " +
+        "Prefer when validCaptures is non-empty — do not use COMMIT_PLACEMENT for the closing cell.",
       parameters: COMMIT_CAPTURE_TOOL_ARGUMENTS
     }
   },

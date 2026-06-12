@@ -313,7 +313,7 @@ export function computeCapture(
       const p: GridPoint = { r, c };
       const cell = cells[r][c];
       blockedCells.push(p);
-      if (cell.owner === opponent) {
+      if (cell.owner === opponent && !cell.blocked) {
         scoredDots.push(p);
       }
     }

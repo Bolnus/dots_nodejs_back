@@ -7,39 +7,55 @@ import { describeExpectedToolArguments } from "./llmGameTools.js";
 export function buildLlmSystemPrompt(): string {
   return [
     "You are playing the game Dots (точки) as the AI opponent.",
-    "Below is the current game state in JSON format.",
-    "It contains the scores, the polygons, the cells, and player names.",
-
-    "The cells field contains the current state of the game board.",
-    "The cells field is a 2D array of objects with the following keys: owner, blocked.",
-    "The owner key is the player id of the player who owns the cell, or null if the cell is empty.",
-    "The blocked key is a boolean indicating if the cell is blocked, ",
-    "which means it is owned by one of the players and cannot be captured.",
-    "The polygons field contains the current state of the game board.",
-    "The polygons field is a 2D array of objects with the following keys: owner, ring.",
-    "The owner key is the player id of the player who owns the polygon, or null if the polygon is empty.",
-    "The ring key is an array of grid points that form the polygon.",
-    "A player's goal is to outline an opponent's dots with his own dots creating a chain of adjacent dots.",
-    "When he does that, a polygons is created, opponent's dots will be blocked and he will lose points.",
-
-    "Analyze the game field for those dots which are in danger of being captured by either players.",
-    "This would mean one needs exactly one placement to outline his opponent's dots and make a polygon around.",
-    "If you find such a placement you definetly need to place a dot there.",
-    "You can do so by running either COMMIT_PLACEMENT or COMMIT_CAPTURE tools based on which player you are.",
-
-    "Now your player name is under yourPlayer key.",
-    "If it turns out it is your dots which are in danger of being captured, ",
-    "you need to run COMMIT_PLACEMENT tool with this placement coordinate to save your dots.",
-
-    "If it turns out you are the one who can make a capture, you need to run COMMIT_CAPTURE tool.",
-    "The ring parameter of COMMIT_CAPTURE tool is an array of grid points that form the polygon.",
-    "The first and last points in the ring array must be the same: your new dot, placed in neutral cell ",
-    "(the one required to finish the capture with a ring of adjacent dots).",
-    "The rest dots in the ring array must be your previous adjacent dots.",
-    "If neither immediate danger is found, nor a polygon of yours can be made,",
-    "place your dot in a neutral cell for the future capture.",
-    "Every response must include:",
-    "Exactly one tool call — COMMIT_PLACEMENT or COMMIT_CAPTURE."
+    "Each turn you receive the current game state as JSON and must call exactly one tool.",
+    "",
+    "## Goal",
+    "Enclose opponent dots in a loop of your dots (8-adjacent / king moves).",
+    "Each opponent dot strictly inside the loop scores +1 for you; enclosed cells become blocked.",
+    "",
+    "## Board (`cells[r][c]`)",
+    '- owner: "player0" | "player1" | null',
+    "- blocked: true → cannot place a dot or use in a capture ring",
+    "- yourPlayer: which player you are; opponentPlayer is the other one",
+    "",
+    "## Precomputed hints (trust these)",
+    "- validCaptures: legal COMMIT_CAPTURE moves for you now. Each entry has ring (use as-is) and scoredDots.",
+    "- opponentCaptureThreats: empty cells where the opponent could capture on their next turn if you do not block.",
+    "",
+    "## Turn priority",
+    "1. If validCaptures is non-empty → COMMIT_CAPTURE (pick the capture that scores the most opponent dots).",
+    "2. Else if opponentCaptureThreats is non-empty → COMMIT_PLACEMENT on one of those cells to block.",
+    "3. Else → COMMIT_PLACEMENT on a neutral empty cell to extend your chains toward future captures.",
+    "",
+    "## COMMIT_PLACEMENT vs COMMIT_CAPTURE",
+    "These are different move types. Do not use COMMIT_PLACEMENT on a closing cell when a capture is available.",
+    "",
+    "| Situation | Tool | What you submit |",
+    "|-----------|------|-----------------|",
+    "| Opponent can close a loop around your dots with one more dot | COMMIT_PLACEMENT | That single cell {r,c} |",
+    "| Your dots almost close a loop around opponent dots | COMMIT_CAPTURE | Full ring, not just closing cell |",
+    "",
+    "## COMMIT_PLACEMENT",
+    "Place one dot on an empty, unblocked cell. Does NOT capture or enclose anything.",
+    "",
+    "## COMMIT_CAPTURE",
+    "One atomic move: places your closing dot AND completes the capture.",
+    "Use when your existing unblocked dots almost form a closed 8-adjacent loop and one empty cell finishes it.",
+    "",
+    "ring format:",
+    "- ring[0]: empty unblocked starter cell (your new dot this turn)",
+    "- ring[1..n-1]: your existing unblocked dots in walk order around the loop (each step 8-adjacent)",
+    "- ring[n]: same as ring[0] (close the loop)",
+    "- At least one opponent dot must lie strictly INSIDE the loop (not on the ring boundary)",
+    "",
+    "Example capture ring (player1):",
+    '[{"r":1,"c":5},{"r":2,"c":4},{"r":1,"c":3},{"r":0,"c":4},{"r":1,"c":5}]',
+    "Here (1,5) is the new dot; (2,4), (1,3), (0,4) are existing own dots walked in order.",
+    "",
+    "## polygons",
+    "Past completed captures ({ owner, ring }). New captures appear here only after you commit them.",
+    "",
+    "Every response must include exactly one tool call: COMMIT_PLACEMENT, COMMIT_CAPTURE, or SURRENDER."
   ].join("\n");
 }
 
@@ -50,14 +66,10 @@ export function buildMissingToolCallError(assistantContent: string | null): stri
     `Your previous response did not include a tool call, so your move was not applied. ` +
     `Every turn you must call exactly one tool (${tools}) to submit your move.`;
 
-  if (assistantContent === null || assistantContent === "") {
-    return `${base} You sent no tool call and no explanation. Call one of the tools now together with a brief reason.`;
-  }
-
   const quoted = JSON.stringify(assistantContent);
   return (
     `${base} You only sent text (${quoted}) without calling a tool. ` +
-    `Retry with a brief explanation plus the tool call — text alone cannot submit a move.`
+    `Retry with a tool call — text alone cannot submit a move.`
   );
 }
 
@@ -75,17 +87,43 @@ export function buildCommitRejectedError(reason: string, action: DotsServerActio
   return `${reason}. Provided action: ${JSON.stringify(action)}`;
 }
 
+/** Builds turn guidance based on precomputed capture hints. */
+function buildTurnGuidance(gameState: LlmGameStatePayload): string {
+  if (gameState.validCaptures.length > 0) {
+    const [best] = gameState.validCaptures;
+    const captureCount = gameState.validCaptures.length;
+    const scoredCount = best.scoredDots.length;
+    return (
+      `validCaptures has ${captureCount} option(s); best scores ${scoredCount} opponent dot(s). ` +
+      "Prefer COMMIT_CAPTURE with a ring from validCaptures."
+    );
+  }
+  if (gameState.opponentCaptureThreats.length > 0) {
+    return (
+      `opponentCaptureThreats has ${gameState.opponentCaptureThreats.length} cell(s). ` +
+      "Consider COMMIT_PLACEMENT on one of those cells to block."
+    );
+  }
+  return "No immediate capture or block is precomputed; COMMIT_PLACEMENT on a strategic neutral cell.";
+}
+
 /** Builds the user message containing the current minimal game state and any prior errors. */
 export function buildLlmUserMessage(gameState: LlmGameStatePayload, priorErrors: readonly string[]): string {
   const payload = JSON.stringify(gameState);
+  const guidance = buildTurnGuidance(gameState);
   if (priorErrors.length === 0) {
     return (
-      `Current game state:\n${payload}\n` +
+      `Current game state:\n${payload}\n\n` +
+      `${guidance}\n` +
       "Make your move: call one tool and include a brief explanation of your reasoning."
     );
   }
   const errors = priorErrors.map((error, index) => `${index + 1}. ${error}`).join("\n");
-  return `Current game state:\n${payload}\n\nPrevious attempt errors:\n${errors}\nTry again with a valid tool call.`;
+  return (
+    `Current game state:\n${payload}\n\n` +
+    `${guidance}\n\n` +
+    `Previous attempt errors:\n${errors}\nTry again with a valid tool call.`
+  );
 }
 
 /** Builds the full message list for an AI turn request. */
