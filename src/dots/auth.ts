@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import type { DotsUser } from "@prisma/client";
+import { Prisma, type DotsUser } from "@prisma/client";
 
 import { DOTS_IDLE_USER_TTL_HOURS } from "../config.js";
 import { prisma } from "../db/prisma.js";
@@ -23,6 +23,28 @@ export function createSessionToken(): string {
   return randomBytes(32).toString("hex");
 }
 
+/** True when Prisma reports a unique-constraint violation. */
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+/** Re-authenticates an existing user or throws when active-room membership blocks it. */
+async function reauthExistingUser(userId: string, displayName: string, sessionTokenHash: string): Promise<AuthUser> {
+  const blocked = await hasBlockingMembership(userId);
+  if (blocked) {
+    throw new DotsApiError(409, "dotsActiveRoomBlocked");
+  }
+  return prisma.dotsUser.update({
+    where: { id: userId },
+    data: {
+      displayName,
+      sessionTokenHash,
+      lastSeenAt: new Date()
+    },
+    select: { id: true, displayName: true }
+  });
+}
+
 /** Deletes idle users who are not in active rooms. */
 export async function purgeExpiredUsers(): Promise<void> {
   const cutoff = new Date(Date.now() - DOTS_IDLE_USER_TTL_HOURS * 60 * 60 * 1000);
@@ -33,7 +55,7 @@ export async function purgeExpiredUsers(): Promise<void> {
   for (const user of stale) {
     const blocked = await hasBlockingMembership(user.id);
     if (!blocked) {
-      await prisma.dotsUser.delete({ where: { id: user.id } });
+      await prisma.dotsUser.deleteMany({ where: { id: user.id } });
     }
   }
 }
@@ -71,32 +93,32 @@ export async function registerUser(displayName: string): Promise<{ user: AuthUse
 
   const existing = await prisma.dotsUser.findUnique({ where: { normalizedName } });
   if (existing) {
-    const blocked = await hasBlockingMembership(existing.id);
-    if (blocked) {
-      throw new DotsApiError(409, "dotsActiveRoomBlocked");
-    }
-    const user = await prisma.dotsUser.update({
-      where: { id: existing.id },
+    const user = await reauthExistingUser(existing.id, trimmed, sessionTokenHash);
+    return { user, token };
+  }
+
+  try {
+    const user = await prisma.dotsUser.create({
       data: {
         displayName: trimmed,
+        normalizedName,
         sessionTokenHash,
         lastSeenAt: new Date()
       },
       select: { id: true, displayName: true }
     });
     return { user, token };
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+    const raced = await prisma.dotsUser.findUnique({ where: { normalizedName } });
+    if (!raced) {
+      throw error;
+    }
+    const user = await reauthExistingUser(raced.id, trimmed, sessionTokenHash);
+    return { user, token };
   }
-
-  const user = await prisma.dotsUser.create({
-    data: {
-      displayName: trimmed,
-      normalizedName,
-      sessionTokenHash,
-      lastSeenAt: new Date()
-    },
-    select: { id: true, displayName: true }
-  });
-  return { user, token };
 }
 
 /** Updates the user's last seen timestamp. */
