@@ -11,7 +11,7 @@ import { createDotsRouter } from "./dots/webApi/dotsRouter.js";
 
 /** Runs startup tasks after the HTTP server is listening. */
 function onArcadeServerListening(): void {
-  console.log(`Dots API listening on http://${EXPRESS_HOST}:${EXPRESS_PORT}`);
+  console.log(`${new Date().toISOString()} Dots API listening on http://${EXPRESS_HOST}:${EXPRESS_PORT}`);
   void resumeInterruptedAiTurns().catch((error: unknown) => console.error("Resume AI turns failed", error));
 }
 

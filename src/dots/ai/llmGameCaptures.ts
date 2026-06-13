@@ -25,7 +25,7 @@ function pointsKey(points: readonly GridPoint[]): string {
 }
 
 /** Returns a grid copy with one dot placed at `point` for `owner`. */
-function cellsWithDot(cells: CellState[][], point: GridPoint, owner: PlayerId): CellState[][] {
+export function cellsWithDot(cells: CellState[][], point: GridPoint, owner: PlayerId): CellState[][] {
   return cells.map((row, rowIndex) =>
     row.map(
       (existing, colIndex): CellState =>
@@ -35,7 +35,7 @@ function cellsWithDot(cells: CellState[][], point: GridPoint, owner: PlayerId): 
 }
 
 /** Validates a closed capture ring against the current grid (mirrors server reducer rules). */
-function validateCaptureRing(cells: CellState[][], ring: GridPoint[], capturer: PlayerId): CaptureResult | null {
+export function tryCaptureRing(cells: CellState[][], ring: GridPoint[], capturer: PlayerId): CaptureResult | null {
   const normalizedRing = normalizeCaptureRing(ring);
   if (normalizedRing === null || !isCaptureRingConnected(normalizedRing)) {
     return null;
@@ -81,7 +81,7 @@ function findCapturesFromStarter({
     }
     if (path.length >= 2 && areNeighbourCells(current, starter)) {
       const closedRing: GridPoint[] = [starter, ...path, starter];
-      const capture = validateCaptureRing(cells, closedRing, capturer);
+      const capture = tryCaptureRing(cells, closedRing, capturer);
       if (capture !== null) {
         const scoredKey = pointsKey(capture.scoredDots);
         if (!seenScored.has(scoredKey)) {

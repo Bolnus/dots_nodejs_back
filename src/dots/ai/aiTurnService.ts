@@ -80,9 +80,6 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
   let toolResult;
   try {
     toolResult = await chatWithLlmTools(buildLlmTurnMessages(context.gameState, priorErrors), DOTS_SERVER_ACTION_TOOLS);
-    if (priorErrors.length) {
-      console.log("priorErrors", priorErrors);
-    }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "LLM request failed";
     priorErrors.push(message);
@@ -120,18 +117,20 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
 /** Runs the LLM retry loop and commits the chosen action. */
 async function runAiTurn(roomId: string): Promise<void> {
   const priorErrors: string[] = [];
+  console.log(new Date().toISOString(), "runAiTurn");
 
   for (let attempt = 0; attempt < LLM_MAX_RETRIES; attempt += 1) {
     const context = await loadAiTurnContext(roomId);
     if (context === null) {
       return;
     }
+    console.log(new Date().toISOString(), "context", context);
     const succeeded = await tryAiAttempt(roomId, context, priorErrors);
     if (succeeded) {
       return;
     }
+    console.log(new Date().toISOString(), "priorErrors", priorErrors);
   }
-  console.log("priorErrors", priorErrors);
 
   const room = await loadRoom(roomId);
   const aiSlot = aiPlayerSlot(room);

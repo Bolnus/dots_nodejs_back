@@ -1,7 +1,12 @@
 import type { LlmContextMessage } from "../../llmTypes.js";
-import type { DotsServerAction } from "../game-synced/types.js";
+import type { DotsServerAction, GridPoint } from "../game-synced/types.js";
 import type { LlmGameStatePayload } from "./llmGameTypes.js";
 import { describeExpectedToolArguments } from "./llmGameTools.js";
+
+/** Formats a grid point for turn guidance messages. */
+function formatPoint(point: GridPoint): string {
+  return `(${point.r},${point.c})`;
+}
 
 /** Builds the system prompt describing dots rules and tool usage for the LLM. */
 export function buildLlmSystemPrompt(): string {
@@ -21,11 +26,16 @@ export function buildLlmSystemPrompt(): string {
     "## Precomputed hints (trust these)",
     "- validCaptures: legal COMMIT_CAPTURE moves for you now. Each entry has ring (use as-is) and scoredDots.",
     "- opponentCaptureThreats: empty cells where the opponent could capture on their next turn if you do not block.",
+    "- captureOpportunities: your shortest multi-turn paths to a future capture (turnsRemaining, recommendedPlacement, closingCell).",
+    "- opponentThreats: opponent multi-turn capture plans (turnsUntilCapture, interceptPlacements, closingCell).",
     "",
     "## Turn priority",
     "1. If validCaptures is non-empty → COMMIT_CAPTURE (pick the capture that scores the most opponent dots).",
     "2. Else if opponentCaptureThreats is non-empty → COMMIT_PLACEMENT on one of those cells to block.",
-    "3. Else → COMMIT_PLACEMENT on a neutral empty cell to extend your chains toward future captures.",
+    "3. Else if opponentThreats has an entry with turnsUntilCapture ≤ your best captureOpportunities.turnsRemaining →",
+    "   COMMIT_PLACEMENT on one of that threat's interceptPlacements (prefer cells shared by multiple threats).",
+    "4. Else if captureOpportunities is non-empty → COMMIT_PLACEMENT on the best entry's recommendedPlacement.",
+    "5. Else → COMMIT_PLACEMENT on a neutral empty cell adjacent to your dots to extend toward future captures.",
     "",
     "## COMMIT_PLACEMENT vs COMMIT_CAPTURE",
     "These are different move types. Do not use COMMIT_PLACEMENT on a closing cell when a capture is available.",
@@ -104,7 +114,46 @@ function buildTurnGuidance(gameState: LlmGameStatePayload): string {
       "Consider COMMIT_PLACEMENT on one of those cells to block."
     );
   }
-  return "No immediate capture or block is precomputed; COMMIT_PLACEMENT on a strategic neutral cell.";
+
+  const [bestOpportunity] = gameState.captureOpportunities;
+  const [bestThreat] = gameState.opponentThreats;
+
+  if (bestThreat !== undefined && bestOpportunity !== undefined) {
+    if (bestThreat.turnsUntilCapture <= bestOpportunity.turnsRemaining) {
+      const [intercept] = bestThreat.interceptPlacements;
+      return (
+        `Opponent may capture in ${bestThreat.turnsUntilCapture} turn(s) (${bestThreat.potentialScore} dot(s)); ` +
+        `your best capture in ${bestOpportunity.turnsRemaining} turn(s) (${bestOpportunity.potentialScore} dot(s)). ` +
+        `Prefer COMMIT_PLACEMENT to block at ${formatPoint(intercept)}.`
+      );
+    }
+    const { recommendedPlacement, closingCell, turnsRemaining, potentialScore } = bestOpportunity;
+    return (
+      `Your best capture in ${turnsRemaining} turn(s) (${potentialScore} dot(s)); ` +
+      `opponent threat in ${bestThreat.turnsUntilCapture} turn(s). ` +
+      `Prefer COMMIT_PLACEMENT at ${formatPoint(recommendedPlacement)} ` +
+      `toward closing ${formatPoint(closingCell)}.`
+    );
+  }
+
+  if (bestThreat !== undefined) {
+    const [intercept] = bestThreat.interceptPlacements;
+    return (
+      `Opponent may capture in ${bestThreat.turnsUntilCapture} turn(s) (${bestThreat.potentialScore} dot(s)). ` +
+      `Prefer COMMIT_PLACEMENT to block at ${formatPoint(intercept)}.`
+    );
+  }
+
+  if (bestOpportunity !== undefined) {
+    const { recommendedPlacement, closingCell, turnsRemaining, potentialScore } = bestOpportunity;
+    return (
+      `Best capture in ${turnsRemaining} turn(s) (${potentialScore} dot(s)). ` +
+      `Prefer COMMIT_PLACEMENT at ${formatPoint(recommendedPlacement)} ` +
+      `toward closing ${formatPoint(closingCell)}.`
+    );
+  }
+
+  return "No capture or block is precomputed; COMMIT_PLACEMENT on a neutral cell adjacent to your dots.";
 }
 
 /** Builds the user message containing the current minimal game state and any prior errors. */

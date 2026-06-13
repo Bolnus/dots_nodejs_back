@@ -64,7 +64,8 @@ export const DOTS_SERVER_ACTION_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       name: "COMMIT_PLACEMENT",
       description:
         "Place a single dot on an empty, unblocked cell. Does not capture. " +
-        "Use to block opponentCaptureThreats or develop when validCaptures is empty.",
+        "Use to block opponentCaptureThreats or opponentThreats.interceptPlacements, " +
+        "or follow captureOpportunities.recommendedPlacement when validCaptures is empty.",
       parameters: COMMIT_PLACEMENT_TOOL_ARGUMENTS
     }
   },
