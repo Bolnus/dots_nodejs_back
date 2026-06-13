@@ -156,9 +156,7 @@ export function enumerateValidCaptures(cells: CellState[][], capturer: PlayerId)
 }
 
 /** Empty cells where the opponent could complete a capture on their next turn. */
-export function enumerateOpponentCaptureThreats(cells: CellState[][], yourPlayer: PlayerId): GridPoint[] {
-  const opponent = opponentPlayerOf(yourPlayer);
-  const captures = enumerateValidCaptures(cells, opponent);
+export function opponentCaptureThreatsFromCaptures(captures: readonly LlmValidCapture[]): GridPoint[] {
   const seenStarters = new Set<string>();
   const threats: GridPoint[] = [];
   for (const capture of captures) {
@@ -171,4 +169,10 @@ export function enumerateOpponentCaptureThreats(cells: CellState[][], yourPlayer
     threats.push(starter);
   }
   return threats;
+}
+
+/** Empty cells where the opponent could complete a capture on their next turn. */
+export function enumerateOpponentCaptureThreats(cells: CellState[][], yourPlayer: PlayerId): GridPoint[] {
+  const opponent = opponentPlayerOf(yourPlayer);
+  return opponentCaptureThreatsFromCaptures(enumerateValidCaptures(cells, opponent));
 }

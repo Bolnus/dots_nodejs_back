@@ -1,12 +1,14 @@
 import { areNeighbourCells } from "../game-synced/logic.js";
 import type { CellState, GridPoint, PlayerId } from "../game-synced/types.js";
-import { cellsWithDot, opponentPlayerOf, tryCaptureRing } from "./llmGameCaptures.js";
+import { opponentPlayerOf, tryCaptureRing } from "./llmGameCaptures.js";
 import type { LlmCaptureOpportunity, LlmOpponentThreat } from "./llmGameTypes.js";
 
-const PLANNING_MAX_MISSING = 5;
+const PLANNING_MAX_MISSING = 3;
 const MAX_PARTIAL_CAPTURES = 16;
 const MAX_RING_VERTICES = 16;
 const MAX_HINT_RESULTS = 5;
+const MAX_DFS_NODES = 10_000;
+const MIN_STARTER_OWN_NEIGHBORS = 2;
 
 const KING_OFFSETS: readonly GridPoint[] = [
   { r: -1, c: -1 },
@@ -19,10 +21,15 @@ const KING_OFFSETS: readonly GridPoint[] = [
   { r: 1, c: 1 }
 ];
 
+/** Stable key for a grid point. */
+function pointKey(point: GridPoint): string {
+  return `${point.r},${point.c}`;
+}
+
 /** Stable key for a list of grid points. */
 function pointsKey(points: readonly GridPoint[]): string {
   return points
-    .map((point) => `${point.r},${point.c}`)
+    .map((point) => pointKey(point))
     .sort((left, right) => left.localeCompare(right))
     .join("|");
 }
@@ -35,64 +42,94 @@ function ringUniqueVertices(ring: readonly GridPoint[]): GridPoint[] {
   return ring.slice(0, ring.length - 1);
 }
 
-/** True when `point` lies on the current DFS path. */
-function isPointOnPath(path: readonly GridPoint[], point: GridPoint): boolean {
-  return path.some((pathPoint) => pathPoint.r === point.r && pathPoint.c === point.c);
-}
+/** Indexed own dots and candidate ring cells used to bound partial-ring search. */
+type PlanningVertexIndex = Readonly<{
+  ownDotKeys: Set<string>;
+  ringEmptyKeys: Set<string>;
+  candidateStarters: GridPoint[];
+}>;
 
-/** Counts empty cells on the current ring path (starter is tracked separately). */
-function countEmptyOnPath(cells: CellState[][], path: readonly GridPoint[]): number {
+/** Counts own dots among the eight king neighbours of `point`. */
+function countOwnNeighborsAt(cells: CellState[][], point: GridPoint, capturer: PlayerId): number {
+  const rows = cells.length;
+  const cols = cells[0]?.length ?? 0;
   let count = 0;
-  for (const point of path) {
-    const cell = cells[point.r]?.[point.c];
-    if (cell !== undefined && cell.owner === null) {
+  for (const offset of KING_OFFSETS) {
+    const row = point.r + offset.r;
+    const col = point.c + offset.c;
+    if (row < 0 || col < 0 || row >= rows || col >= cols) {
+      continue;
+    }
+    if (cells[row][col].owner === capturer) {
       count += 1;
     }
   }
   return count;
 }
 
-/** Own dots and candidate empty ring cells used to bound partial-ring search. */
-type PlanningVertices = Readonly<{
-  ownDots: GridPoint[];
-  ringEmptyCells: GridPoint[];
-}>;
-
-/** True when `point` is an empty unblocked cell adjacent to at least one own dot. */
-function isCandidateRingEmptyCell(cells: CellState[][], point: GridPoint, ownDots: readonly GridPoint[]): boolean {
+/** True when `point` is a candidate empty ring or starter cell for `capturer`. */
+function classifyEmptyPlanningCell(
+  cells: CellState[][],
+  point: GridPoint,
+  capturer: PlayerId
+): "skip" | "ringEmpty" | "starter" {
   const cell = cells[point.r]?.[point.c];
   if (cell === undefined || cell.blocked || cell.owner !== null) {
-    return false;
+    return "skip";
   }
-  return ownDots.some((ownDot) => areNeighbourCells(point, ownDot));
+  const neighborCount = countOwnNeighborsAt(cells, point, capturer);
+  if (neighborCount === 0) {
+    return "skip";
+  }
+  if (neighborCount >= MIN_STARTER_OWN_NEIGHBORS) {
+    return "starter";
+  }
+  return "ringEmpty";
 }
 
-/** Collects own dots and empty cells adjacent to at least one own dot. */
-function collectPlanningVertices(cells: CellState[][], capturer: PlayerId): PlanningVertices {
-  const ownDots: GridPoint[] = [];
+/** Collects keys of unblocked dots owned by `capturer`. */
+function collectOwnDotKeys(cells: CellState[][], capturer: PlayerId): Set<string> {
+  const ownDotKeys = new Set<string>();
+  const rows = cells.length;
+  const cols = cells[0]?.length ?? 0;
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const cell = cells[row][col];
+      if (!cell.blocked && cell.owner === capturer) {
+        ownDotKeys.add(pointKey({ r: row, c: col }));
+      }
+    }
+  }
+  return ownDotKeys;
+}
+
+/** Builds lookup sets and starter list for partial-ring search. */
+function buildPlanningVertexIndex(cells: CellState[][], capturer: PlayerId): PlanningVertexIndex | null {
+  const ownDotKeys = collectOwnDotKeys(cells, capturer);
+  if (ownDotKeys.size === 0) {
+    return null;
+  }
+
+  const ringEmptyKeys = new Set<string>();
+  const candidateStarters: GridPoint[] = [];
   const rows = cells.length;
   const cols = cells[0]?.length ?? 0;
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
-      const cell = cells[row][col];
-      if (!cell.blocked && cell.owner === capturer) {
-        ownDots.push({ r: row, c: col });
-      }
-    }
-  }
-
-  const ringEmptyCells: GridPoint[] = [];
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
       const point: GridPoint = { r: row, c: col };
-      if (isCandidateRingEmptyCell(cells, point, ownDots)) {
-        ringEmptyCells.push(point);
+      const kind = classifyEmptyPlanningCell(cells, point, capturer);
+      if (kind === "skip") {
+        continue;
       }
+      if (kind === "starter") {
+        candidateStarters.push(point);
+      }
+      ringEmptyKeys.add(pointKey(point));
     }
   }
 
-  return { ownDots, ringEmptyCells };
+  return { ownDotKeys, ringEmptyKeys, candidateStarters };
 }
 
 /** Empty ring vertices that `capturer` still needs to fill before capturing. */
@@ -115,55 +152,37 @@ function missingRingVertices(cells: CellState[][], ring: readonly GridPoint[], c
   return missing;
 }
 
-/** Fills every empty ring vertex except the capture starter. */
+/** Fills every empty ring vertex except the capture starter in one grid copy. */
 function cellsWithFilledRing(
   cells: CellState[][],
   ring: readonly GridPoint[],
   capturer: PlayerId,
   starter: GridPoint
 ): CellState[][] {
-  let result = cells;
+  const result = cells.map((row) => row.map((cell) => ({ ...cell })));
   for (const vertex of ringUniqueVertices(ring)) {
     if (vertex.r === starter.r && vertex.c === starter.c) {
       continue;
     }
     const cell = result[vertex.r]?.[vertex.c];
     if (cell !== undefined && cell.owner === null && !cell.blocked) {
-      result = cellsWithDot(result, vertex, capturer);
+      cell.owner = capturer;
     }
   }
   return result;
 }
 
-/** Counts how many own dots neighbour `point` on the current board. */
-function countOwnNeighbors(cells: CellState[][], point: GridPoint, capturer: PlayerId): number {
-  const rows = cells.length;
-  const cols = cells[0]?.length ?? 0;
-  let count = 0;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const cell = cells[row][col];
-      if (cell.owner === capturer && areNeighbourCells(point, { r: row, c: col })) {
-        count += 1;
-      }
-    }
-  }
-  return count;
-}
-
 /** Picks the better of two candidate placement cells. */
 function pickBetterPlacement(cells: CellState[][], left: GridPoint, right: GridPoint, capturer: PlayerId): GridPoint {
-  const leftScore = countOwnNeighbors(cells, left, capturer);
-  const rightScore = countOwnNeighbors(cells, right, capturer);
+  const leftScore = countOwnNeighborsAt(cells, left, capturer);
+  const rightScore = countOwnNeighborsAt(cells, right, capturer);
   if (rightScore > leftScore) {
     return right;
   }
   if (rightScore < leftScore) {
     return left;
   }
-  const leftKey = `${left.r},${left.c}`;
-  const rightKey = `${right.r},${right.c}`;
-  return rightKey.localeCompare(leftKey) < 0 ? right : left;
+  return pointKey(right).localeCompare(pointKey(left)) < 0 ? right : left;
 }
 
 /** Picks the best ring cell to fill this turn (prefer non-starter with most own neighbours). */
@@ -193,14 +212,19 @@ type PartialRingSearchContext = Readonly<{
   starter: GridPoint;
   capturer: PlayerId;
   maxMissing: number;
-  ownDots: readonly GridPoint[];
-  ringEmptyCells: readonly GridPoint[];
+  vertexIndex: PlanningVertexIndex;
   seenResults: Set<string>;
   results: PartialCaptureCandidate[];
+  dfsNodes: { count: number };
 }>;
 
+/** True when the DFS node budget is exhausted. */
+function isDfsBudgetExhausted(context: PartialRingSearchContext): boolean {
+  return context.dfsNodes.count >= MAX_DFS_NODES;
+}
+
 /** Records a closed ring when it yields a valid multi-turn capture. */
-function tryRecordPartialCapture(context: PartialRingSearchContext, path: GridPoint[]): void {
+function tryRecordPartialCapture(context: PartialRingSearchContext, path: readonly GridPoint[]): void {
   const { cells, starter, capturer, maxMissing, seenResults, results } = context;
   if (results.length >= MAX_PARTIAL_CAPTURES) {
     return;
@@ -215,8 +239,7 @@ function tryRecordPartialCapture(context: PartialRingSearchContext, path: GridPo
   if (capture === null) {
     return;
   }
-  const scoredKey = pointsKey(capture.scoredDots);
-  const resultKey = `${scoredKey}|${missing.length}`;
+  const resultKey = `${pointsKey(capture.scoredDots)}|${missing.length}`;
   if (seenResults.has(resultKey)) {
     return;
   }
@@ -231,18 +254,28 @@ function tryRecordPartialCapture(context: PartialRingSearchContext, path: GridPo
   });
 }
 
+/** Counts empty cells already on the ring path (starter tracked separately). */
+function countEmptyOnPath(cells: CellState[][], path: readonly GridPoint[]): number {
+  let count = 0;
+  for (const pathPoint of path) {
+    if (cells[pathPoint.r]?.[pathPoint.c]?.owner === null) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 /** True when `point` may extend the partial ring path from `current`. */
 function canExtendPartialRing(
   context: PartialRingSearchContext,
   path: readonly GridPoint[],
+  pathKeys: ReadonlySet<string>,
   current: GridPoint,
   point: GridPoint
 ): boolean {
-  const { cells, starter, capturer, maxMissing, ownDots, ringEmptyCells } = context;
-  if (point.r === starter.r && point.c === starter.c) {
-    return false;
-  }
-  if (isPointOnPath(path, point)) {
+  const { cells, starter, capturer, maxMissing, vertexIndex } = context;
+  const nextKey = pointKey(point);
+  if (nextKey === pointKey(starter) || pathKeys.has(nextKey)) {
     return false;
   }
   if (!areNeighbourCells(current, point)) {
@@ -253,12 +286,12 @@ function canExtendPartialRing(
     return false;
   }
   if (cell.owner === capturer) {
-    return ownDots.some((ownDot) => ownDot.r === point.r && ownDot.c === point.c);
+    return vertexIndex.ownDotKeys.has(nextKey);
   }
   if (cell.owner !== null) {
     return false;
   }
-  if (!ringEmptyCells.some((emptyCell) => emptyCell.r === point.r && emptyCell.c === point.c)) {
+  if (!vertexIndex.ringEmptyKeys.has(nextKey)) {
     return false;
   }
   return countEmptyOnPath(cells, path) + 1 <= maxMissing - 1;
@@ -268,6 +301,7 @@ function canExtendPartialRing(
 function forEachPartialRingNeighbor(
   context: PartialRingSearchContext,
   path: readonly GridPoint[],
+  pathKeys: ReadonlySet<string>,
   current: GridPoint,
   visit: (next: GridPoint) => void
 ): void {
@@ -278,29 +312,61 @@ function forEachPartialRingNeighbor(
     if (next.r < 0 || next.c < 0 || next.r >= rows || next.c >= cols) {
       continue;
     }
-    if (!canExtendPartialRing(context, path, current, next)) {
+    if (!canExtendPartialRing(context, path, pathKeys, current, next)) {
       continue;
     }
     visit(next);
   }
 }
 
+/** Extends the partial-ring path to `next` and continues DFS. */
+function visitPartialRingNeighbor(
+  context: PartialRingSearchContext,
+  path: GridPoint[],
+  pathKeys: Set<string>,
+  next: GridPoint
+): void {
+  path.push(next);
+  pathKeys.add(pointKey(next));
+  searchPartialCaptureRing(context, path, pathKeys, next);
+  pathKeys.delete(pointKey(next));
+  path.pop();
+}
+
 /** DFS from `starter` through own dots and bounded empty ring cells. */
-function searchPartialCaptureRing(context: PartialRingSearchContext, path: GridPoint[], current: GridPoint): void {
-  if (context.results.length >= MAX_PARTIAL_CAPTURES || path.length > MAX_RING_VERTICES) {
+function searchPartialCaptureRing(
+  context: PartialRingSearchContext,
+  path: GridPoint[],
+  pathKeys: Set<string>,
+  current: GridPoint
+): void {
+  if (
+    isDfsBudgetExhausted(context) ||
+    context.results.length >= MAX_PARTIAL_CAPTURES ||
+    path.length > MAX_RING_VERTICES
+  ) {
     return;
   }
+  context.dfsNodes.count += 1;
+
   if (path.length >= 2 && areNeighbourCells(current, context.starter)) {
     tryRecordPartialCapture(context, path);
   }
-  forEachPartialRingNeighbor(context, path, current, (next) =>
-    searchPartialCaptureRing(context, [...path, next], next)
+  forEachPartialRingNeighbor(context, path, pathKeys, current, (next) =>
+    visitPartialRingNeighbor(context, path, pathKeys, next)
   );
 }
 
 /** DFS from `starter` through own/empty cells to find multi-turn capture rings. */
 function findPartialCapturesFromStarter(context: PartialRingSearchContext): void {
-  forEachPartialRingNeighbor(context, [], context.starter, (next) => searchPartialCaptureRing(context, [next], next));
+  if (isDfsBudgetExhausted(context)) {
+    return;
+  }
+  const path: GridPoint[] = [];
+  const pathKeys = new Set<string>();
+  forEachPartialRingNeighbor(context, path, pathKeys, context.starter, (next) =>
+    visitPartialRingNeighbor(context, path, pathKeys, next)
+  );
 }
 
 /** Compares partial captures: fewer turns first, then higher score. */
@@ -317,45 +383,38 @@ function enumeratePartialCaptures(
   capturer: PlayerId,
   maxMissing: number
 ): PartialCaptureCandidate[] {
-  const results: PartialCaptureCandidate[] = [];
-  const seenResults = new Set<string>();
-  const { ownDots, ringEmptyCells } = collectPlanningVertices(cells, capturer);
-  if (ownDots.length === 0) {
-    return results;
+  const vertexIndex = buildPlanningVertexIndex(cells, capturer);
+  if (vertexIndex === null) {
+    return [];
   }
 
-  const rows = cells.length;
-  const cols = cells[0]?.length ?? 0;
+  const results: PartialCaptureCandidate[] = [];
+  const seenResults = new Set<string>();
+  const dfsNodes = { count: 0 };
+  const searchContext: PartialRingSearchContext = {
+    cells,
+    starter: { r: 0, c: 0 },
+    capturer,
+    maxMissing,
+    vertexIndex,
+    seenResults,
+    results,
+    dfsNodes
+  };
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (results.length >= MAX_PARTIAL_CAPTURES) {
-        break;
-      }
-      const starter: GridPoint = { r: row, c: col };
-      const starterCell = cells[row][col];
-      if (starterCell === undefined || starterCell.blocked || starterCell.owner !== null) {
-        continue;
-      }
-      findPartialCapturesFromStarter({
-        cells,
-        starter,
-        capturer,
-        maxMissing,
-        ownDots,
-        ringEmptyCells,
-        seenResults,
-        results
-      });
+  for (const starter of vertexIndex.candidateStarters) {
+    if (results.length >= MAX_PARTIAL_CAPTURES || isDfsBudgetExhausted(searchContext)) {
+      break;
     }
+    findPartialCapturesFromStarter({ ...searchContext, starter });
   }
 
   return results.sort(comparePartialCaptures);
 }
 
-/** Multi-turn capture opportunities for the AI (2+ placements before COMMIT_CAPTURE). */
-export function enumerateCaptureOpportunities(cells: CellState[][], yourPlayer: PlayerId): LlmCaptureOpportunity[] {
-  return enumeratePartialCaptures(cells, yourPlayer, PLANNING_MAX_MISSING)
+/** Maps partial capture candidates to LLM opportunity hints. */
+function toCaptureOpportunities(candidates: readonly PartialCaptureCandidate[]): LlmCaptureOpportunity[] {
+  return candidates
     .slice(0, MAX_HINT_RESULTS)
     .map(({ turnsRemaining, potentialScore, recommendedPlacement, closingCell }) => ({
       turnsRemaining,
@@ -365,10 +424,9 @@ export function enumerateCaptureOpportunities(cells: CellState[][], yourPlayer: 
     }));
 }
 
-/** Multi-turn opponent capture threats the AI can intercept (2+ opponent placements away). */
-export function enumerateMultiTurnOpponentThreats(cells: CellState[][], yourPlayer: PlayerId): LlmOpponentThreat[] {
-  const opponent = opponentPlayerOf(yourPlayer);
-  return enumeratePartialCaptures(cells, opponent, PLANNING_MAX_MISSING)
+/** Maps partial capture candidates to LLM opponent threat hints. */
+function toOpponentThreats(candidates: readonly PartialCaptureCandidate[]): LlmOpponentThreat[] {
+  return candidates
     .slice(0, MAX_HINT_RESULTS)
     .map(({ turnsRemaining, potentialScore, interceptPlacements, closingCell }) => ({
       turnsUntilCapture: turnsRemaining,
@@ -376,4 +434,26 @@ export function enumerateMultiTurnOpponentThreats(cells: CellState[][], yourPlay
       interceptPlacements,
       closingCell
     }));
+}
+
+/** Multi-turn capture opportunities for the AI (2+ placements before COMMIT_CAPTURE). */
+export function enumerateCaptureOpportunities(cells: CellState[][], yourPlayer: PlayerId): LlmCaptureOpportunity[] {
+  return toCaptureOpportunities(enumeratePartialCaptures(cells, yourPlayer, PLANNING_MAX_MISSING));
+}
+
+/** Multi-turn opponent capture threats the AI can intercept (2+ opponent placements away). */
+export function enumerateMultiTurnOpponentThreats(cells: CellState[][], yourPlayer: PlayerId): LlmOpponentThreat[] {
+  const opponent = opponentPlayerOf(yourPlayer);
+  return toOpponentThreats(enumeratePartialCaptures(cells, opponent, PLANNING_MAX_MISSING));
+}
+
+/** Multi-turn hints for both players; skips work when the DFS budget is shared per call. */
+export function enumerateMultiTurnHints(
+  cells: CellState[][],
+  yourPlayer: PlayerId
+): Readonly<{ captureOpportunities: LlmCaptureOpportunity[]; opponentThreats: LlmOpponentThreat[] }> {
+  return {
+    captureOpportunities: enumerateCaptureOpportunities(cells, yourPlayer),
+    opponentThreats: enumerateMultiTurnOpponentThreats(cells, yourPlayer)
+  };
 }
