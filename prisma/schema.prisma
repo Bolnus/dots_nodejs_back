@@ -61,11 +61,22 @@ model DotsRoom {
 }
 
 model DotsChat {
-  id        String            @id @default(uuid())
-  roomId    String            @unique
-  room      DotsRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  createdAt DateTime          @default(now())
-  messages  DotsChatMessage[]
+  id         String              @id @default(uuid())
+  roomId     String              @unique
+  room       DotsRoom            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt  DateTime            @default(now())
+  messages   DotsChatMessage[]
+  readStates DotsChatReadState[]
+}
+
+model DotsChatReadState {
+  chatId       String
+  chat         DotsChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  userId       String
+  lastReadAtMs BigInt
+  updatedAt    DateTime @updatedAt
+
+  @@id([chatId, userId])
 }
 
 model DotsChatMessage {

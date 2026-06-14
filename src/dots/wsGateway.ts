@@ -3,6 +3,7 @@ import type { Server as HttpServer } from "node:http";
 
 import type { DotsRoomEvent } from "./wireTypes.js";
 import { authenticateBearer } from "./auth.js";
+import { broadcastChatTyping } from "./chatService.js";
 import { setRoomEventBroadcaster } from "./events.js";
 import { applyEphemeral, broadcastConnectionUpdate, getRoom } from "./roomService.js";
 import { trackUserConnected, untrackUserConnected } from "./roomConnections.js";
@@ -80,7 +81,7 @@ async function notifyConnectionChange(roomId: string): Promise<void> {
   }
 }
 
-/** Handles one inbound WebSocket message (AUTH / SUBSCRIBE / PRESENCE). */
+/** Handles one inbound WebSocket message (AUTH / SUBSCRIBE / PRESENCE / CHAT_TYPING). */
 async function handleClientMessage(ws: WsSocket, raw: RawData): Promise<void> {
   const text = messageToText(raw);
   if (!text) {
@@ -120,6 +121,11 @@ async function handleClientMessage(ws: WsSocket, raw: RawData): Promise<void> {
 
   if (msg.type === "PRESENCE" && msg.roomId && msg.patch) {
     await applyEphemeral(state.userId, msg.roomId, msg.patch as Parameters<typeof applyEphemeral>[2]);
+    return;
+  }
+
+  if (msg.type === "CHAT_TYPING" && msg.roomId) {
+    await broadcastChatTyping(msg.roomId, state.userId);
   }
 }
 

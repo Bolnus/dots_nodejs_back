@@ -8,6 +8,7 @@ import { postRoom } from "./rooms/postRoom.js";
 import { postAi } from "./rooms/roomId/ai/postAi.js";
 import { getMessages } from "./rooms/roomId/chat/messages/getMessages.js";
 import { postMessage } from "./rooms/roomId/chat/messages/postMessage.js";
+import { postRead } from "./rooms/roomId/chat/read/postRead.js";
 import { postCommit } from "./rooms/roomId/actions/commit/postCommit.js";
 import { getRoomById } from "./rooms/roomId/getRoom.js";
 import { postJoin } from "./rooms/roomId/join/postJoin.js";
@@ -145,6 +146,11 @@ export function createDotsRouter(): Router {
     "/rooms/:roomId/chat/messages",
     requireAuth,
     handleDotsRoute((req, res) => postMessage(req, res))
+  );
+  router.post(
+    "/rooms/:roomId/chat/read",
+    requireAuth,
+    handleDotsRoute((req, res) => postRead(req, res))
   );
 
   return router;

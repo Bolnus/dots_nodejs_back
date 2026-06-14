@@ -37,6 +37,8 @@ export type DotsErrorCode = keyof Pick<
   | "dotsLlmUnavailable"
   | "dotsNotInRoom"
   | "dotsChatMessageEmpty"
+  | "dotsChatMessageTooLong"
+  | "dotsChatRateLimited"
 >;
 
 export type DotsRoomStatus = "waiting" | "playing" | "finished";
@@ -61,8 +63,16 @@ export type AddAiResult = Readonly<{
   room: DotsRoomDetail;
 }>;
 
+export type DotsChatReadState = Readonly<{
+  userId: string;
+  lastReadAtMs: number;
+}>;
+
 export type ListChatMessagesResult = Readonly<{
   messages: readonly DotsChatMessage[];
+  hasMoreBefore: boolean;
+  hasMoreAfter: boolean;
+  readStates: readonly DotsChatReadState[];
 }>;
 
 export type DotsRoomPlayer = Readonly<{ slot: PlayerId; user: DotsOnlineUser }>;
@@ -118,7 +128,9 @@ export type DotsRoomEvent =
   | Readonly<{ type: "ROOM_STATE"; room: DotsRoomDetail }>
   | Readonly<{ type: "STATE_DELTA"; room: DotsRoomDetail }>
   | Readonly<{ type: "PRESENCE_DELTA"; room: DotsRoomDetail }>
-  | Readonly<{ type: "CHAT_MESSAGE"; roomId: string; message: DotsChatMessage }>;
+  | Readonly<{ type: "CHAT_MESSAGE"; roomId: string; message: DotsChatMessage }>
+  | Readonly<{ type: "CHAT_READ"; roomId: string; userId: string; lastReadAtMs: number }>
+  | Readonly<{ type: "CHAT_TYPING"; roomId: string; userId: string; displayName: string }>;
 
 export type CommitRejectReason = "prevHash" | "badHash" | "notAuthorized" | "notInGame" | ReduceServerRejectReason;
 

@@ -470,7 +470,9 @@ List chat messages for a room. **Room members only** (players or viewers).
 
 **Auth:** required
 
-**Query:** `afterMs` (optional, epoch ms cursor), `limit` (optional, default 50, max 200)
+**Query:** `afterMs` (optional, newer-than cursor), `beforeMs` (optional, older-than cursor), `limit` (optional, default 50, max 200)
+
+Omit both cursors to receive the **latest** messages (ascending in the response). Use `beforeMs` for scroll-up history; use `afterMs` to gap-fill after reconnect.
 
 **Response `200`:**
 
@@ -485,7 +487,10 @@ List chat messages for a room. **Room members only** (players or viewers).
       "content": "Hello",
       "createdAtMs": 1710000000000
     }
-  ]
+  ],
+  "hasMoreBefore": false,
+  "hasMoreAfter": false,
+  "readStates": [{ "userId": "uuid", "lastReadAtMs": 1710000000000 }]
 }
 ```
 
@@ -513,7 +518,29 @@ Post a chat message. **Not forwarded to the LLM.**
 
 Broadcasts `CHAT_MESSAGE` to WebSocket subscribers.
 
-**Errors:** `400` (`dotsChatMessageEmpty`), `401`, `403`, `404`.
+**Errors:** `400` (`dotsChatMessageEmpty`, `dotsChatMessageTooLong`), `401`, `403`, `404`, `429` (`dotsChatRateLimited`).
+
+---
+
+#### `POST /dots/rooms/:roomId/chat/read`
+
+Mark chat messages as read up to a timestamp. **Room members only.**
+
+**Auth:** required
+
+**Body:**
+
+```json
+{
+  "lastReadAtMs": 1710000000000
+}
+```
+
+**Response `204`**
+
+Broadcasts `CHAT_READ` to WebSocket subscribers.
+
+**Errors:** `401`, `403`, `404`.
 
 ---
 
@@ -672,6 +699,30 @@ Subscribers receive:
 
 ---
 
+#### CHAT_TYPING
+
+Broadcast an ephemeral typing indicator (not persisted). Room members only.
+
+```json
+{
+  "type": "CHAT_TYPING",
+  "roomId": "uuid"
+}
+```
+
+Subscribers receive:
+
+```json
+{
+  "type": "CHAT_TYPING",
+  "roomId": "uuid",
+  "userId": "uuid",
+  "displayName": "Alice"
+}
+```
+
+---
+
 ### Server → client events
 
 All subscribed clients on a room channel receive the same payload.
@@ -682,6 +733,8 @@ All subscribed clients on a room channel receive the same payload.
 | `STATE_DELTA` | Room/membership/settings/game state or `connectedUserIds` changed |
 | `PRESENCE_DELTA` | Ephemeral `presence` updated |
 | `CHAT_MESSAGE` | New chat message in the room |
+| `CHAT_READ` | A member updated their read cursor |
+| `CHAT_TYPING` | A member is typing |
 
 **Event shape:**
 

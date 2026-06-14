@@ -31,5 +31,7 @@ export const en = {
   dotsAiNotPresent: "There is no AI player in this room.",
   dotsLlmUnavailable: "The AI model is not available right now.",
   dotsNotInRoom: "You are not a member of this room.",
-  dotsChatMessageEmpty: "Message cannot be empty."
+  dotsChatMessageEmpty: "Message cannot be empty.",
+  dotsChatMessageTooLong: "Message is too long (max {max} characters).",
+  dotsChatRateLimited: "You are sending messages too quickly. Please wait a moment."
 } as const;

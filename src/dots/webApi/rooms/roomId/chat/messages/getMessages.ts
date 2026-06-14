@@ -8,7 +8,8 @@ import type { DotsRequest } from "../../../../../wireTypes.js";
 /** Returns paginated chat messages for a room member. */
 export async function getMessages(req: DotsRequest, res: ExpressResponse): Promise<void> {
   const afterMs = parseOptionalInt(req.query.afterMs);
+  const beforeMs = parseOptionalInt(req.query.beforeMs);
   const limit = parseOptionalInt(req.query.limit);
-  const result = await listChatMessages(roomIdParam(req), req.dotsUser!.id, afterMs, limit);
+  const result = await listChatMessages(roomIdParam(req), req.dotsUser!.id, afterMs, beforeMs, limit);
   res.json(result);
 }
