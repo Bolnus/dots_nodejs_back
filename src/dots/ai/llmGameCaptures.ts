@@ -1,6 +1,7 @@
 import {
   areNeighbourCells,
   computeCapture,
+  gridPointKey,
   isCaptureRingConnected,
   normalizeCaptureRing,
   type CaptureResult
@@ -19,7 +20,7 @@ export function opponentPlayerOf(player: PlayerId): PlayerId {
 /** Stable key for a list of grid points. */
 function pointsKey(points: readonly GridPoint[]): string {
   return points
-    .map((point) => `${point.r},${point.c}`)
+    .map(gridPointKey)
     .sort((left, right) => left.localeCompare(right))
     .join("|");
 }
@@ -161,7 +162,7 @@ export function opponentCaptureThreatsFromCaptures(captures: readonly LlmValidCa
   const threats: GridPoint[] = [];
   for (const capture of captures) {
     const [starter] = capture.ring;
-    const starterKey = `${starter.r},${starter.c}`;
+    const starterKey = gridPointKey(starter);
     if (seenStarters.has(starterKey)) {
       continue;
     }

@@ -1,4 +1,4 @@
-import { areNeighbourCells } from "../game-synced/logic.js";
+import { areNeighbourCells, gridPointKey } from "../game-synced/logic.js";
 import type { CellState, GridPoint, PlayerId } from "../game-synced/types.js";
 import { opponentPlayerOf, tryCaptureRing } from "./llmGameCaptures.js";
 import type { LlmCaptureOpportunity, LlmOpponentThreat } from "./llmGameTypes.js";
@@ -21,15 +21,10 @@ const KING_OFFSETS: readonly GridPoint[] = [
   { r: 1, c: 1 }
 ];
 
-/** Stable key for a grid point. */
-function pointKey(point: GridPoint): string {
-  return `${point.r},${point.c}`;
-}
-
 /** Stable key for a list of grid points. */
 function pointsKey(points: readonly GridPoint[]): string {
   return points
-    .map((point) => pointKey(point))
+    .map((point) => gridPointKey(point))
     .sort((left, right) => left.localeCompare(right))
     .join("|");
 }
@@ -96,7 +91,7 @@ function collectOwnDotKeys(cells: CellState[][], capturer: PlayerId): Set<string
     for (let col = 0; col < cols; col += 1) {
       const cell = cells[row][col];
       if (!cell.blocked && cell.owner === capturer) {
-        ownDotKeys.add(pointKey({ r: row, c: col }));
+        ownDotKeys.add(gridPointKey({ r: row, c: col }));
       }
     }
   }
@@ -125,7 +120,7 @@ function buildPlanningVertexIndex(cells: CellState[][], capturer: PlayerId): Pla
       if (kind === "starter") {
         candidateStarters.push(point);
       }
-      ringEmptyKeys.add(pointKey(point));
+      ringEmptyKeys.add(gridPointKey(point));
     }
   }
 
@@ -182,7 +177,7 @@ function pickBetterPlacement(cells: CellState[][], left: GridPoint, right: GridP
   if (rightScore < leftScore) {
     return left;
   }
-  return pointKey(right).localeCompare(pointKey(left)) < 0 ? right : left;
+  return gridPointKey(right).localeCompare(gridPointKey(left)) < 0 ? right : left;
 }
 
 /** Picks the best ring cell to fill this turn (prefer non-starter with most own neighbours). */
@@ -274,8 +269,8 @@ function canExtendPartialRing(
   point: GridPoint
 ): boolean {
   const { cells, starter, capturer, maxMissing, vertexIndex } = context;
-  const nextKey = pointKey(point);
-  if (nextKey === pointKey(starter) || pathKeys.has(nextKey)) {
+  const nextKey = gridPointKey(point);
+  if (nextKey === gridPointKey(starter) || pathKeys.has(nextKey)) {
     return false;
   }
   if (!areNeighbourCells(current, point)) {
@@ -327,9 +322,9 @@ function visitPartialRingNeighbor(
   next: GridPoint
 ): void {
   path.push(next);
-  pathKeys.add(pointKey(next));
+  pathKeys.add(gridPointKey(next));
   searchPartialCaptureRing(context, path, pathKeys, next);
-  pathKeys.delete(pointKey(next));
+  pathKeys.delete(gridPointKey(next));
   path.pop();
 }
 

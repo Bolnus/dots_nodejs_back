@@ -113,9 +113,14 @@ function isRingVertex(p: GridPoint, ring: readonly GridPoint[]): boolean {
   return false;
 }
 
+/** Stable string key for a grid point. */
+export function gridPointKey(point: GridPoint): string {
+  return `${point.r},${point.c}`;
+}
+
 /** Stable map key for a board intersection. */
-function dotKey(r: number, c: number): string {
-  return `${r},${c}`;
+function dotKey(row: number, col: number): string {
+  return gridPointKey({ r: row, c: col });
 }
 
 /** True if `p` lies on the closed segment between `a` and `b` (integer grid). */

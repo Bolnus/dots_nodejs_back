@@ -15,7 +15,7 @@ import {
   buildLlmTurnMessages,
   buildMissingToolCallError
 } from "./llmGamePrompts.js";
-import { toLlmGameState } from "./llmGameState.js";
+import { summarizeLlmGameHints, toLlmGameState } from "./llmGameState.js";
 import type { LlmGameStatePayload } from "./llmGameTypes.js";
 import { parseDotsServerActionFromTool } from "./llmGameTools.js";
 
@@ -124,7 +124,7 @@ async function runAiTurn(roomId: string): Promise<void> {
     if (context === null) {
       return;
     }
-    console.log(new Date().toISOString(), "context", context);
+    console.log(new Date().toISOString(), "context", summarizeLlmGameHints(context.gameState));
     const succeeded = await tryAiAttempt(roomId, context, priorErrors);
     if (succeeded) {
       return;

@@ -22,6 +22,14 @@ export type LlmOpponentThreat = Readonly<{
   closingCell: GridPoint;
 }>;
 
+/** Coordinate strings derived from LLM hint arrays for logging. */
+export type LlmGameHintSummary = Readonly<{
+  validCaptures?: string[];
+  opponentCaptureThreats?: string[];
+  captureOpportunities?: string[];
+  opponentThreats?: string[];
+}>;
+
 /** Minimal gameplay payload sent to the LLM (no hash, version, or presence). */
 export type LlmGameStatePayload = Readonly<{
   config: DotsServerGameState["config"];
