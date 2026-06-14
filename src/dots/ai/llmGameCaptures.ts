@@ -2,6 +2,7 @@ import {
   areNeighbourCells,
   computeCapture,
   gridPointKey,
+  gridPointsKey,
   isCaptureRingConnected,
   normalizeCaptureRing,
   type CaptureResult
@@ -15,14 +16,6 @@ const MAX_RING_OWN_DOTS = 16;
 /** Returns the opposing player id. */
 export function opponentPlayerOf(player: PlayerId): PlayerId {
   return player === "player0" ? "player1" : "player0";
-}
-
-/** Stable key for a list of grid points. */
-function pointsKey(points: readonly GridPoint[]): string {
-  return points
-    .map(gridPointKey)
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
 }
 
 /** Returns a grid copy with one dot placed at `point` for `owner`. */
@@ -84,7 +77,7 @@ function findCapturesFromStarter({
       const closedRing: GridPoint[] = [starter, ...path, starter];
       const capture = tryCaptureRing(cells, closedRing, capturer);
       if (capture !== null) {
-        const scoredKey = pointsKey(capture.scoredDots);
+        const scoredKey = gridPointsKey(capture.scoredDots);
         if (!seenScored.has(scoredKey)) {
           seenScored.add(scoredKey);
           results.push({ ring: closedRing, scoredDots: capture.scoredDots });

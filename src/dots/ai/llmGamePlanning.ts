@@ -1,4 +1,4 @@
-import { areNeighbourCells, gridPointKey } from "../game-synced/logic.js";
+import { areNeighbourCells, gridPointKey, gridPointsKey } from "../game-synced/logic.js";
 import type { CellState, GridPoint, PlayerId } from "../game-synced/types.js";
 import { opponentPlayerOf, tryCaptureRing } from "./llmGameCaptures.js";
 import type { LlmCaptureOpportunity, LlmOpponentThreat } from "./llmGameTypes.js";
@@ -20,14 +20,6 @@ const KING_OFFSETS: readonly GridPoint[] = [
   { r: 1, c: 0 },
   { r: 1, c: 1 }
 ];
-
-/** Stable key for a list of grid points. */
-function pointsKey(points: readonly GridPoint[]): string {
-  return points
-    .map((point) => gridPointKey(point))
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
-}
 
 /** Ring vertices without the closing duplicate of the starter. */
 function ringUniqueVertices(ring: readonly GridPoint[]): GridPoint[] {
@@ -234,7 +226,7 @@ function tryRecordPartialCapture(context: PartialRingSearchContext, path: readon
   if (capture === null) {
     return;
   }
-  const resultKey = `${pointsKey(capture.scoredDots)}|${missing.length}`;
+  const resultKey = `${gridPointsKey(capture.scoredDots)}|${missing.length}`;
   if (seenResults.has(resultKey)) {
     return;
   }

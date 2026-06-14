@@ -118,6 +118,14 @@ export function gridPointKey(point: GridPoint): string {
   return `${point.r},${point.c}`;
 }
 
+/** Stable sorted key for a list of grid points. */
+export function gridPointsKey(points: readonly GridPoint[]): string {
+  return points
+    .map(gridPointKey)
+    .sort((left, right) => left.localeCompare(right))
+    .join("|");
+}
+
 /** Stable map key for a board intersection. */
 function dotKey(row: number, col: number): string {
   return gridPointKey({ r: row, c: col });
