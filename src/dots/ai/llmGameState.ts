@@ -4,12 +4,7 @@ import { aiPlayerSlot } from "../aiPlayerService.js";
 import type { RoomWithMembers } from "../membershipConsts.js";
 import { enumerateValidCaptures, opponentCaptureThreatsFromCaptures, opponentPlayerOf } from "./llmGameCaptures.js";
 import { enumerateMultiTurnHints } from "./llmGamePlanning.js";
-import type {
-  LlmCaptureOpportunity,
-  LlmGameHintSummary,
-  LlmGameStatePayload,
-  LlmOpponentThreat
-} from "./llmGameTypes.js";
+import type { LlmCaptureOpportunity, LlmGameStatePayload, LlmOpponentThreat } from "./llmGameTypes.js";
 
 /** Projects authoritative server state to the minimal LLM-facing shape. */
 export function toLlmGameState(room: RoomWithMembers, state: DotsServerGameState): LlmGameStatePayload | null {
@@ -45,19 +40,38 @@ export function toLlmGameState(room: RoomWithMembers, state: DotsServerGameState
   };
 }
 
-/** Summarizes LLM hint arrays as suggested-placement coordinate strings. */
-export function summarizeLlmGameHints(gameState: LlmGameStatePayload): LlmGameHintSummary {
+/** Joins grid coordinate keys for display in chat sentences. */
+function formatCoordinateList(coordinates: readonly string[]): string {
+  return coordinates.join(", ");
+}
+
+/** Summarizes LLM hint arrays as human-readable sentences for room chat. */
+export function summarizeLlmGameHints(gameState: LlmGameStatePayload): string {
+  const sentences: string[] = [];
+
   const validCaptures = gameState.validCaptures.map((capture) => gridPointKey(capture.ring[0]));
+  if (validCaptures.length > 0) {
+    sentences.push(`I can complete a capture now by placing at: ${formatCoordinateList(validCaptures)}.`);
+  }
+
   const opponentCaptureThreats = gameState.opponentCaptureThreats.map(gridPointKey);
+  if (opponentCaptureThreats.length > 0) {
+    sentences.push(
+      `Opponent could complete a capture on their next turn at: ${formatCoordinateList(opponentCaptureThreats)}.`
+    );
+  }
+
   const captureOpportunities = gameState.captureOpportunities.map((opportunity) =>
     gridPointKey(opportunity.recommendedPlacement)
   );
-  const opponentThreats = gameState.opponentThreats.map((threat) => gridPointKey(threat.interceptPlacements[0]));
+  if (captureOpportunities.length > 0) {
+    sentences.push(`Future capture opportunities detected by placing at: ${formatCoordinateList(captureOpportunities)}.`);
+  }
 
-  return {
-    ...(validCaptures.length > 0 ? { validCaptures } : {}),
-    ...(opponentCaptureThreats.length > 0 ? { opponentCaptureThreats } : {}),
-    ...(captureOpportunities.length > 0 ? { captureOpportunities } : {}),
-    ...(opponentThreats.length > 0 ? { opponentThreats } : {})
-  };
+  const opponentThreats = gameState.opponentThreats.map((threat) => gridPointKey(threat.interceptPlacements[0]));
+  if (opponentThreats.length > 0) {
+    sentences.push(`I need to block upcoming opponent captures by placing at: ${formatCoordinateList(opponentThreats)}.`);
+  }
+
+  return sentences.join("\n");
 }

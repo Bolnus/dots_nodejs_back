@@ -2,9 +2,10 @@ import { DotsRoomStatus } from "@prisma/client";
 
 import { LLM_MAX_RETRIES } from "../../config.js";
 import { chatWithLlmTools } from "../../llm.js";
-import { postAiChatMessage } from "../chatService.js";
+import { MAX_CHAT_MESSAGE_LENGTH, postAiChatMessage } from "../chatService.js";
 import { commitAction } from "../commitService.js";
 import { currentServerPlacingPlayer } from "../game-synced/serverReducer.js";
+import { gridPointKey } from "../game-synced/logic.js";
 import type { DotsServerAction, DotsServerGameState, PlayerId } from "../game-synced/types.js";
 import { aiPlayerSlot } from "../aiPlayerService.js";
 import { loadRoom } from "../roomService.js";
@@ -37,13 +38,38 @@ function isAiTurn(room: Awaited<ReturnType<typeof loadRoom>>): boolean {
   return currentServerPlacingPlayer(state) === slot;
 }
 
+/** Truncates AI debug chat text to the persisted message length limit. */
+function truncateAiChatMessage(content: string): string {
+  if (content.length <= MAX_CHAT_MESSAGE_LENGTH) {
+    return content;
+  }
+  return `${content.slice(0, MAX_CHAT_MESSAGE_LENGTH - 3)}...`;
+}
+
+/** Describes a committed AI action in plain language for room chat. */
+function describeAiAction(action: DotsServerAction): string {
+  switch (action.type) {
+    case "COMMIT_PLACEMENT":
+      return `Placed a dot at ${gridPointKey(action.point)}.`;
+    case "COMMIT_CAPTURE": {
+      const closingCell = action.ring[0];
+      if (closingCell === undefined) {
+        return "Captured opponent dots.";
+      }
+      return `Captured opponent dots by placing at ${gridPointKey(closingCell)}.`;
+    }
+    case "SURRENDER":
+      return "Surrendered.";
+  }
+}
+
 /** Builds the chat text persisted after a successful AI action. */
 function buildAiChatContent(toolName: string, assistantContent: string | null, action: DotsServerAction): string {
   const actionSummary = JSON.stringify(action);
   if (assistantContent !== null && assistantContent !== "") {
     return `${assistantContent}\nAction: ${toolName} ${actionSummary}`;
   }
-  return `Action: ${toolName} ${actionSummary}`;
+  return describeAiAction(action);
 }
 
 /** Applies a surrender action for the AI when retries are exhausted. */
@@ -114,22 +140,34 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
   return true;
 }
 
+/** Formats accumulated LLM retry errors for room chat. */
+function buildPriorErrorsChatMessage(attempt: number, priorErrors: readonly string[]): string {
+  const attemptLabel = `Attempt ${attempt + 1}/${LLM_MAX_RETRIES} failed.`;
+  if (priorErrors.length === 0) {
+    return attemptLabel;
+  }
+  return truncateAiChatMessage(`${attemptLabel} Errors: ${priorErrors.join(" | ")}`);
+}
+
 /** Runs the LLM retry loop and commits the chosen action. */
 async function runAiTurn(roomId: string): Promise<void> {
   const priorErrors: string[] = [];
-  console.log(new Date().toISOString(), "runAiTurn");
+  await postAiChatMessage(roomId, "Starting AI turn.");
 
   for (let attempt = 0; attempt < LLM_MAX_RETRIES; attempt += 1) {
     const context = await loadAiTurnContext(roomId);
     if (context === null) {
       return;
     }
-    console.log(new Date().toISOString(), "context", summarizeLlmGameHints(context.gameState));
+    const hints = summarizeLlmGameHints(context.gameState);
+    if (hints !== "") {
+      await postAiChatMessage(roomId, truncateAiChatMessage(hints));
+    }
     const succeeded = await tryAiAttempt(roomId, context, priorErrors);
     if (succeeded) {
       return;
     }
-    console.log(new Date().toISOString(), "priorErrors", priorErrors);
+    await postAiChatMessage(roomId, buildPriorErrorsChatMessage(attempt, priorErrors));
   }
 
   const room = await loadRoom(roomId);
