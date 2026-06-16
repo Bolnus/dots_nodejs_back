@@ -1,4 +1,4 @@
-import { DotsChatSenderKind, DotsRoomMemberRole } from "@prisma/client";
+import { DotsChatSenderKind, DotsRoomMemberRole, DotsRoomStatus } from "@prisma/client";
 
 import { prisma } from "../db/prisma.js";
 import { broadcastRoomEvent } from "./events.js";
@@ -45,7 +45,27 @@ function memberRoleToSenderKind(role: DotsRoomMemberRole): DotsChatSenderKind {
   return DotsChatSenderKind.PLAYER;
 }
 
-/** Ensures the user is a member of the room or throws. */
+/** True when the user may read chat history in the room. */
+function canReadChat(room: Awaited<ReturnType<typeof loadRoom>>, userId: string): boolean {
+  const isMember = room.members.some((member) => member.userId === userId);
+  if (isMember) {
+    return true;
+  }
+  if (room.status !== DotsRoomStatus.FINISHED) {
+    return false;
+  }
+  return userId === room.lockedPlayer0UserId || userId === room.lockedPlayer1UserId;
+}
+
+/** Ensures the user may read chat or throws. */
+async function assertChatReadAccess(roomId: string, userId: string): Promise<void> {
+  const room = await loadRoom(roomId);
+  if (!canReadChat(room, userId)) {
+    throw new DotsApiError(403, "dotsNotInRoom");
+  }
+}
+
+/** Ensures the user is a room member or throws. */
 async function assertRoomMember(roomId: string, userId: string): Promise<void> {
   const room = await loadRoom(roomId);
   const isMember = room.members.some((member) => member.userId === userId);
@@ -137,7 +157,7 @@ export async function listChatMessages(
   beforeMs: number | undefined,
   limit: number | undefined
 ): Promise<ListChatMessagesResult> {
-  await assertRoomMember(roomId, userId);
+  await assertChatReadAccess(roomId, userId);
   const chat = await loadChatForRoom(roomId);
   const take = Math.min(Math.max(limit ?? DEFAULT_MESSAGE_LIMIT, 1), MAX_MESSAGE_LIMIT);
   const readStates = await loadReadStates(chat.id);
@@ -228,7 +248,7 @@ export async function markChatRead(roomId: string, userId: string, lastReadAtMs:
   if (!Number.isFinite(lastReadAtMs) || lastReadAtMs < 0) {
     throw new DotsApiError(400, "dotsInternal");
   }
-  await assertRoomMember(roomId, userId);
+  await assertChatReadAccess(roomId, userId);
   const chat = await loadChatForRoom(roomId);
   await prisma.dotsChatReadState.upsert({
     where: { chatId_userId: { chatId: chat.id, userId } },
