@@ -2,7 +2,7 @@ import { DotsRoomStatus } from "@prisma/client";
 
 import { LLM_MAX_RETRIES } from "../../config.js";
 import { chatWithLlmTools } from "../../llm.js";
-import { MAX_CHAT_MESSAGE_LENGTH, postAiChatMessage } from "../chatService.js";
+import { postAiChatMessage } from "../chatService.js";
 import { commitAction } from "../commitService.js";
 import { currentServerPlacingPlayer } from "../game-synced/serverReducer.js";
 import { gridPointKey } from "../game-synced/logic.js";
@@ -38,14 +38,6 @@ function isAiTurn(room: Awaited<ReturnType<typeof loadRoom>>): boolean {
   return currentServerPlacingPlayer(state) === slot;
 }
 
-/** Truncates AI debug chat text to the persisted message length limit. */
-function truncateAiChatMessage(content: string): string {
-  if (content.length <= MAX_CHAT_MESSAGE_LENGTH) {
-    return content;
-  }
-  return `${content.slice(0, MAX_CHAT_MESSAGE_LENGTH - 3)}...`;
-}
-
 /** Describes a committed AI action in plain language for room chat. */
 function describeAiAction(action: DotsServerAction): string {
   switch (action.type) {
@@ -72,11 +64,33 @@ function buildAiChatContent(toolName: string, assistantContent: string | null, a
   return describeAiAction(action);
 }
 
+/** Posts an AI chat message without failing the turn when chat persistence errors. */
+async function safePostAiChatMessage(roomId: string, content: string): Promise<void> {
+  try {
+    await postAiChatMessage(roomId, content);
+  } catch (error: unknown) {
+    console.error("Failed to post AI chat message for room", roomId, error);
+  }
+}
+
 /** Applies a surrender action for the AI when retries are exhausted. */
 async function forceAiSurrender(roomId: string, aiSlot: PlayerId): Promise<void> {
   const action: DotsServerAction = { type: "SURRENDER", by: aiSlot };
   await commitAction(roomId, undefined, action, { kind: "ai" });
-  await postAiChatMessage(roomId, "AI surrendered after repeated failures.");
+  await safePostAiChatMessage(roomId, "AI surrendered after repeated failures.");
+}
+
+/** Surrenders for the AI when it is still the acting player. */
+async function surrenderAiIfStillItsTurn(roomId: string): Promise<void> {
+  try {
+    const room = await loadRoom(roomId);
+    const aiSlot = aiPlayerSlot(room);
+    if (aiSlot !== null && isAiTurn(room)) {
+      await forceAiSurrender(roomId, aiSlot);
+    }
+  } catch (error: unknown) {
+    console.error("AI surrender failed for room", roomId, error);
+  }
 }
 
 type AiTurnContext = Readonly<{
@@ -103,41 +117,50 @@ async function loadAiTurnContext(roomId: string): Promise<AiTurnContext | null> 
 
 /** Executes one LLM attempt; returns true when a move was committed. */
 async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors: string[]): Promise<boolean> {
-  let toolResult;
   try {
-    toolResult = await chatWithLlmTools(buildLlmTurnMessages(context.gameState, priorErrors), DOTS_SERVER_ACTION_TOOLS);
+    let toolResult;
+    try {
+      toolResult = await chatWithLlmTools(
+        buildLlmTurnMessages(context.gameState, priorErrors),
+        DOTS_SERVER_ACTION_TOOLS
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "LLM request failed";
+      priorErrors.push(message);
+      return false;
+    }
+
+    if (!toolResult.hasToolCall || toolResult.toolName === null || toolResult.argumentsJson === null) {
+      if (toolResult.assistantContent !== null && toolResult.assistantContent !== "") {
+        await safePostAiChatMessage(roomId, toolResult.assistantContent);
+      }
+      priorErrors.push(buildMissingToolCallError(toolResult.assistantContent));
+      return false;
+    }
+
+    const action = parseDotsServerActionFromTool(toolResult.toolName, toolResult.argumentsJson);
+    if (action === null) {
+      priorErrors.push(buildInvalidToolArgumentsError(toolResult.toolName, toolResult.argumentsJson));
+      return false;
+    }
+    if (action.by !== context.aiSlot) {
+      priorErrors.push(`Action must be by ${context.aiSlot}, got ${action.by}`);
+      return false;
+    }
+
+    const result = await commitAction(roomId, undefined, action, { kind: "ai" });
+    if (result.status === "rejected") {
+      priorErrors.push(buildCommitRejectedError(result.reason, action));
+      return false;
+    }
+
+    await safePostAiChatMessage(roomId, buildAiChatContent(toolResult.toolName, toolResult.assistantContent, action));
+    return true;
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "LLM request failed";
+    const message = error instanceof Error ? error.message : "Unexpected AI turn error";
     priorErrors.push(message);
     return false;
   }
-
-  if (!toolResult.hasToolCall || toolResult.toolName === null || toolResult.argumentsJson === null) {
-    if (toolResult.assistantContent !== null && toolResult.assistantContent !== "") {
-      await postAiChatMessage(roomId, toolResult.assistantContent);
-    }
-    priorErrors.push(buildMissingToolCallError(toolResult.assistantContent));
-    return false;
-  }
-
-  const action = parseDotsServerActionFromTool(toolResult.toolName, toolResult.argumentsJson);
-  if (action === null) {
-    priorErrors.push(buildInvalidToolArgumentsError(toolResult.toolName, toolResult.argumentsJson));
-    return false;
-  }
-  if (action.by !== context.aiSlot) {
-    priorErrors.push(`Action must be by ${context.aiSlot}, got ${action.by}`);
-    return false;
-  }
-
-  const result = await commitAction(roomId, undefined, action, { kind: "ai" });
-  if (result.status === "rejected") {
-    priorErrors.push(buildCommitRejectedError(result.reason, action));
-    return false;
-  }
-
-  await postAiChatMessage(roomId, buildAiChatContent(toolResult.toolName, toolResult.assistantContent, action));
-  return true;
 }
 
 /** Formats accumulated LLM retry errors for room chat. */
@@ -146,34 +169,35 @@ function buildPriorErrorsChatMessage(attempt: number, priorErrors: readonly stri
   if (priorErrors.length === 0) {
     return attemptLabel;
   }
-  return truncateAiChatMessage(`${attemptLabel} Errors: ${priorErrors.join(" | ")}`);
+  return `${attemptLabel} Errors: ${priorErrors.join(" | ")}`;
 }
 
 /** Runs the LLM retry loop and commits the chosen action. */
 async function runAiTurn(roomId: string): Promise<void> {
-  const priorErrors: string[] = [];
-  await postAiChatMessage(roomId, "Starting AI turn.");
+  try {
+    const priorErrors: string[] = [];
+    await safePostAiChatMessage(roomId, "Starting AI turn.");
 
-  for (let attempt = 0; attempt < LLM_MAX_RETRIES; attempt += 1) {
-    const context = await loadAiTurnContext(roomId);
-    if (context === null) {
-      return;
+    for (let attempt = 0; attempt < LLM_MAX_RETRIES; attempt += 1) {
+      const context = await loadAiTurnContext(roomId);
+      if (context === null) {
+        return;
+      }
+      const hints = summarizeLlmGameHints(context.gameState);
+      if (hints !== "") {
+        await safePostAiChatMessage(roomId, hints);
+      }
+      const succeeded = await tryAiAttempt(roomId, context, priorErrors);
+      if (succeeded) {
+        return;
+      }
+      await safePostAiChatMessage(roomId, buildPriorErrorsChatMessage(attempt, priorErrors));
     }
-    const hints = summarizeLlmGameHints(context.gameState);
-    if (hints !== "") {
-      await postAiChatMessage(roomId, truncateAiChatMessage(hints));
-    }
-    const succeeded = await tryAiAttempt(roomId, context, priorErrors);
-    if (succeeded) {
-      return;
-    }
-    await postAiChatMessage(roomId, buildPriorErrorsChatMessage(attempt, priorErrors));
-  }
 
-  const room = await loadRoom(roomId);
-  const aiSlot = aiPlayerSlot(room);
-  if (aiSlot !== null && isAiTurn(room)) {
-    await forceAiSurrender(roomId, aiSlot);
+    await surrenderAiIfStillItsTurn(roomId);
+  } catch (error: unknown) {
+    console.error("AI turn failed unexpectedly for room", roomId, error);
+    await surrenderAiIfStillItsTurn(roomId);
   }
 }
 
@@ -203,6 +227,7 @@ export function scheduleAiTurnIfNeeded(roomId: string): void {
       await runAiTurn(roomId);
     } catch (error: unknown) {
       console.error("AI turn failed for room", roomId, error);
+      await surrenderAiIfStillItsTurn(roomId);
     }
   });
 }

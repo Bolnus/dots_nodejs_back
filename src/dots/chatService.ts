@@ -220,7 +220,6 @@ export async function postAiChatMessage(roomId: string, content: string): Promis
   if (trimmed === "") {
     throw new DotsApiError(400, "dotsChatMessageEmpty");
   }
-  assertMessageLength(trimmed);
   return persistChatMessage(roomId, DotsChatSenderKind.AI, null, trimmed);
 }
 
@@ -247,7 +246,7 @@ export async function broadcastChatTyping(roomId: string, userId: string): Promi
   if (!member) {
     throw new DotsApiError(403, "dotsNotInRoom");
   }
-  const user = member.user;
+  const { user } = member;
   broadcastRoomEvent(roomId, {
     type: "CHAT_TYPING",
     roomId,
