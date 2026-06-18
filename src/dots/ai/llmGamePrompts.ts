@@ -93,8 +93,8 @@ export function buildInvalidToolArgumentsError(toolName: string, argumentsJson: 
 }
 
 /** Builds a retry error when the game server rejected a parsed action. */
-export function buildCommitRejectedError(reason: string, action: DotsServerAction): string {
-  return `${reason}. Provided action: ${JSON.stringify(action)}`;
+export function buildCommitRejectedError(messageLocal: string, action: DotsServerAction): string {
+  return `${messageLocal}. Provided action: ${JSON.stringify(action)}`;
 }
 
 /** Builds turn guidance based on precomputed capture hints. */

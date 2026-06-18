@@ -43,15 +43,15 @@ function describeAiAction(action: DotsServerAction): string {
   switch (action.type) {
     case "COMMIT_PLACEMENT":
       return `Placed a dot at ${gridPointKey(action.point)}.`;
-    case "COMMIT_CAPTURE": {
-      const closingCell = action.ring[0];
-      if (closingCell === undefined) {
+    case "COMMIT_CAPTURE":
+      if (action.ring[0] === undefined) {
         return "Captured opponent dots.";
       }
-      return `Captured opponent dots by placing at ${gridPointKey(closingCell)}.`;
-    }
+      return `Captured opponent dots by placing at ${gridPointKey(action.ring[0])}.`;
     case "SURRENDER":
       return "Surrendered.";
+    default:
+      return action;
   }
 }
 
@@ -76,7 +76,7 @@ async function safePostAiChatMessage(roomId: string, content: string): Promise<v
 /** Applies a surrender action for the AI when retries are exhausted. */
 async function forceAiSurrender(roomId: string, aiSlot: PlayerId): Promise<void> {
   const action: DotsServerAction = { type: "SURRENDER", by: aiSlot };
-  await commitAction(roomId, undefined, action, { kind: "ai" });
+  await commitAction(roomId, "en", action, { kind: "ai" });
   await safePostAiChatMessage(roomId, "AI surrendered after repeated failures.");
 }
 
@@ -148,9 +148,9 @@ async function tryAiAttempt(roomId: string, context: AiTurnContext, priorErrors:
       return false;
     }
 
-    const result = await commitAction(roomId, undefined, action, { kind: "ai" });
+    const result = await commitAction(roomId, "en", action, { kind: "ai" });
     if (result.status === "rejected") {
-      priorErrors.push(buildCommitRejectedError(result.reason, action));
+      priorErrors.push(buildCommitRejectedError(result.messageLocal, action));
       return false;
     }
 
@@ -169,7 +169,7 @@ function buildPriorErrorsChatMessage(attempt: number, priorErrors: readonly stri
   if (priorErrors.length === 0) {
     return attemptLabel;
   }
-  return `${attemptLabel} Errors: ${priorErrors.join(" | ")}`;
+  return `${attemptLabel} Errors: ${priorErrors.at(-1)}`;
 }
 
 /** Runs the LLM retry loop and commits the chosen action. */

@@ -65,12 +65,16 @@ export function summarizeLlmGameHints(gameState: LlmGameStatePayload): string {
     gridPointKey(opportunity.recommendedPlacement)
   );
   if (captureOpportunities.length > 0) {
-    sentences.push(`Future capture opportunities detected by placing at: ${formatCoordinateList(captureOpportunities)}.`);
+    sentences.push(
+      `Future capture opportunities detected by placing at: ${formatCoordinateList(captureOpportunities)}.`
+    );
   }
 
   const opponentThreats = gameState.opponentThreats.map((threat) => gridPointKey(threat.interceptPlacements[0]));
   if (opponentThreats.length > 0) {
-    sentences.push(`I need to block upcoming opponent captures by placing at: ${formatCoordinateList(opponentThreats)}.`);
+    sentences.push(
+      `I need to block upcoming opponent captures by placing at: ${formatCoordinateList(opponentThreats)}.`
+    );
   }
 
   return sentences.join("\n");

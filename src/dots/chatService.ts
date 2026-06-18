@@ -251,7 +251,11 @@ export async function markChatRead(roomId: string, userId: string, lastReadAtMs:
   await assertChatReadAccess(roomId, userId);
   const chat = await loadChatForRoom(roomId);
   await prisma.dotsChatReadState.upsert({
-    where: { chatId_userId: { chatId: chat.id, userId } },
+    where: {
+      // Prisma compound unique key name
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Prisma compound unique key
+      chatId_userId: { chatId: chat.id, userId }
+    },
     create: { chatId: chat.id, userId, lastReadAtMs: BigInt(Math.floor(lastReadAtMs)) },
     update: { lastReadAtMs: BigInt(Math.floor(lastReadAtMs)) }
   });

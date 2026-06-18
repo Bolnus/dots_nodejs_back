@@ -23,7 +23,8 @@ export default defineConfig([
     "*.mjs",
     "*.cjs",
     "build/*",
-    "prisma.config.ts"
+    "prisma.config.ts",
+    "insomnia/**"
   ]),
   {
     languageOptions: {

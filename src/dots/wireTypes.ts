@@ -139,7 +139,7 @@ export type CommitActionResult =
   | Readonly<{
       status: "rejected";
       reason: CommitRejectReason;
-      /** Localized rejection text when the server generated it (`Accept-Language`). */
-      messageLocal?: string;
+      /** Localized rejection text (`Accept-Language`). */
+      messageLocal: string;
       snapshot: DotsRoomDetail;
     }>;
