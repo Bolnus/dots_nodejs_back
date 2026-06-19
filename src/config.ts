@@ -79,7 +79,4 @@ export const LLM_OPTIONS = {
 /** Maximum LLM retry attempts per AI turn before the AI surrenders. */
 export const LLM_MAX_RETRIES = optionalNumber("LLM_MAX_RETRIES", 3);
 
-export const TELEGRAM_BOT_TOKEN = `${required("TELEGRAM_BOT_ID")}:${required("TELEGRAM_BOT_SECRET")}`;
-export const TELEGRAM_UPDATE_METHOD = optionalString("TELEGRAM_UPDATE_METHOD", "long_polling");
-export const TELEGRAM_RATE_LIMIT_WINDOW_MS = optionalNumber("TELEGRAM_RATE_LIMIT_WINDOW_MS", 10_000);
-export const TELEGRAM_RATE_LIMIT_MAX = optionalNumber("TELEGRAM_RATE_LIMIT_MAX", 6);
+export const BARK_URL = required("BARK_URL");
