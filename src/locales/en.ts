@@ -33,5 +33,8 @@ export const en = {
   dotsNotInRoom: "You are not a member of this room.",
   dotsChatMessageEmpty: "Message cannot be empty.",
   dotsChatMessageTooLong: "Message is too long (max {max} characters).",
-  dotsChatRateLimited: "You are sending messages too quickly. Please wait a moment."
+  dotsChatRateLimited: "You are sending messages too quickly. Please wait a moment.",
+  dotsRateLimited: "Too many requests. Please wait a moment.",
+  dotsMaxUsers: "The server has reached the maximum number of users ({max}).",
+  dotsChatMessageCap: "This chat has reached the message limit ({max})."
 } as const;

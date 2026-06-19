@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { notifyAdminSync } from "./adminNotify/notifyAdmin.js";
+
 export type CrashKind = "uncaughtException" | "unhandledRejection" | "startupError";
 
 interface CrashReport {
@@ -65,20 +67,40 @@ export function writeCrashReport(kind: CrashKind, err: unknown): void {
   }
 }
 
+/** Sends an admin Bark push for a process crash. */
+async function notifyCrash(kind: CrashKind, err: unknown): Promise<void> {
+  const { message } = formatError(err);
+  await notifyAdminSync({
+    category: "crash",
+    title: `Dots: ${kind}`,
+    body: message.slice(0, 500),
+    dedupeKey: `crash:${kind}`,
+    level: "timeSensitive"
+  });
+}
+
 /** Handles synchronous uncaught exceptions. */
-function onUncaughtException(err: unknown): void {
+async function onUncaughtException(err: unknown): Promise<void> {
   writeCrashReport("uncaughtException", err);
+  await notifyCrash("uncaughtException", err);
   process.exit(1);
 }
 
 /** Handles promise rejections that were not caught. */
-function onUnhandledRejection(reason: unknown): void {
+async function onUnhandledRejection(reason: unknown): Promise<void> {
   writeCrashReport("unhandledRejection", reason);
+  await notifyCrash("unhandledRejection", reason);
   process.exit(1);
 }
 
 /** Registers process-level crash handlers that write reports under `logs/`. */
 export function registerCrashReporting(): void {
-  process.on("uncaughtException", onUncaughtException);
-  process.on("unhandledRejection", onUnhandledRejection);
+  process.on("uncaughtException", (err: unknown) => void onUncaughtException(err));
+  process.on("unhandledRejection", (reason: unknown) => void onUnhandledRejection(reason));
+}
+
+/** Writes a crash report and notifies the admin (for startup failures). */
+export async function reportCrashAndNotify(kind: CrashKind, err: unknown): Promise<void> {
+  writeCrashReport(kind, err);
+  await notifyCrash(kind, err);
 }

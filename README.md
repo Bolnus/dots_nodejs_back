@@ -36,7 +36,12 @@ npm start
 | `EXPRESS_HOST` | no | `0.0.0.0` | HTTP bind host |
 | `EXPRESS_PORT` / `PORT` | no | `3030` | HTTP port |
 | `DOTS_MAX_ACTIVE_ROOMS` | no | `30` | Cap on `waiting` + `playing` rooms |
+| `DOTS_MAX_USERS` | no | `500` | Global registered user cap |
+| `DOTS_MAX_CHAT_MESSAGES_PER_ROOM` | no | `10000` | Max messages per room chat |
 | `DOTS_IDLE_USER_TTL_HOURS` | no | `24` | Idle users without active membership may be purged |
+| `BARK_URL` | yes | — | Bark device key for admin iOS push notifications |
+| `BARK_SERVER_URL` | no | `https://api.day.app` | Bark server base URL |
+| `BARK_NOTIFY_MAX_PER_MINUTE` | no | `10` | Global admin push cap (dedupe still applies) |
 | `LLM_API_KEY` | no | `ollama` | API key for OpenAI-compatible client |
 | `LLM_TEMPERATURE`, `LLM_TOP_P`, `LLM_TOP_K`, `LLM_NUM_CTX` | no | see `src/config.ts` | LLM sampling / context |
 | `LLM_MAX_RETRIES` | no | `3` | AI turn retries before surrender |
@@ -85,12 +90,17 @@ Routes **without** auth: `POST /dots/sessions/register`, `GET /dots/rooms`, `GET
 | 409 | `dotsNameTaken` | Display name already used (PATCH me) |
 | 409 | `dotsActiveRoomBlocked` | User in active room as owner/player |
 | 409 | `dotsMaxRooms` | Global active room cap reached |
+| 409 | `dotsMaxUsers` | Global user cap reached |
+| 409 | `dotsChatMessageCap` | Per-room chat message cap reached |
 | 409 | `dotsSettingsLocked` | PATCH room while not `waiting` |
 | 409 | `dotsNeedTwoPlayers` | Start without two players |
 | 409 | `dotsPlayingLocked` | Join as player while game in progress (use viewer) |
 | 409 | `dotsAiSlotTaken` | Second player slot already occupied |
 | 403 | `dotsNotInRoom` | Chat access without room membership |
 | 400 | `dotsChatMessageEmpty` | Empty chat message body |
+| 400 | `dotsChatMessageTooLong` | Chat message over max length |
+| 429 | `dotsChatRateLimited` | Chat message rate limit exceeded |
+| 429 | `dotsRateLimited` | Mutational request rate limit exceeded |
 | 503 | `dotsLlmUnavailable` | LLM model not configured |
 | 500 | `dotsInternal` | Unhandled server error |
 

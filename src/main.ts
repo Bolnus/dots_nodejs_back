@@ -1,6 +1,6 @@
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import { registerCrashReporting, writeCrashReport } from "./crashReporting.js";
+import { registerCrashReporting, reportCrashAndNotify } from "./crashReporting.js";
 import { startArcadeServer } from "./webServer.js";
 
 registerCrashReporting();
@@ -14,14 +14,14 @@ function main(): void {
 }
 
 /** Logs startup errors, writes a crash report, and sets a non-zero exit code. */
-function reportMainError(err: unknown): void {
+async function reportMainError(err: unknown): Promise<void> {
   console.error(err);
-  writeCrashReport("startupError", err);
+  await reportCrashAndNotify("startupError", err);
   process.exitCode = 1;
 }
 
 try {
   void main();
 } catch (localError) {
-  reportMainError(localError);
+  void reportMainError(localError);
 }

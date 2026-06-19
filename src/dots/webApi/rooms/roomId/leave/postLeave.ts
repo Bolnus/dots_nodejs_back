@@ -8,7 +8,7 @@ import { loadRoom, saveAndBroadcast } from "../../../../roomService.js";
 import { broadcastRoomEvent } from "../../../../events.js";
 import type { DotsRequest } from "../../../../wireTypes.js";
 
-/** Removes a user from a room; owners delete waiting rooms. Playing rooms are left unchanged. */
+/** Removes a user from a room; owners delete waiting rooms (chat/messages cascade via FK). */
 async function leaveRoom(userId: string, roomId: string): Promise<void> {
   const room = await loadRoom(roomId);
 

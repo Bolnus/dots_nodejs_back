@@ -6,6 +6,7 @@ import { DOTS_IDLE_USER_TTL_HOURS } from "../config.js";
 import { prisma } from "../db/prisma.js";
 import { DotsApiError } from "./errors.js";
 import { hasBlockingMembership } from "./membership.js";
+import { assertUserCap } from "./tableQuotas.js";
 import type { AuthUser } from "./wireTypes.js";
 
 /** Hashes a bearer token for storage. */
@@ -96,6 +97,8 @@ export async function registerUser(displayName: string): Promise<{ user: AuthUse
     const user = await reauthExistingUser(existing.id, trimmed, sessionTokenHash);
     return { user, token };
   }
+
+  await assertUserCap();
 
   try {
     const user = await prisma.dotsUser.create({

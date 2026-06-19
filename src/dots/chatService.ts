@@ -1,9 +1,11 @@
 import { DotsChatSenderKind, DotsRoomMemberRole, DotsRoomStatus } from "@prisma/client";
 
 import { prisma } from "../db/prisma.js";
+import { assertMutationRateLimit } from "../rateLimit/mutationRateLimit.js";
 import { broadcastRoomEvent } from "./events.js";
 import { DotsApiError } from "./errors.js";
 import { loadRoom } from "./roomService.js";
+import { assertChatMessageCap } from "./tableQuotas.js";
 import type {
   DotsChatMessage,
   DotsChatReadState,
@@ -14,12 +16,6 @@ import type {
 export const MAX_CHAT_MESSAGE_LENGTH = 500;
 const DEFAULT_MESSAGE_LIMIT = 50;
 const MAX_MESSAGE_LIMIT = 200;
-const RATE_LIMIT_MAX_MESSAGES = 10;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-
-type RateLimitEntry = Readonly<{ timestamps: number[] }>;
-
-const rateLimitByRoomUser = new Map<string, RateLimitEntry>();
 
 /** Maps a Prisma chat sender kind to the wire enum. */
 function toWireSenderKind(kind: DotsChatSenderKind): WireChatSenderKind {
@@ -112,15 +108,8 @@ function assertMessageLength(content: string): void {
 }
 
 /** Enforces per-user rate limit for posting chat messages in a room. */
-function assertRateLimit(roomId: string, userId: string): void {
-  const key = `${roomId}:${userId}`;
-  const now = Date.now();
-  const entry = rateLimitByRoomUser.get(key);
-  const recent = (entry?.timestamps ?? []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT_MAX_MESSAGES) {
-    throw new DotsApiError(429, "dotsChatRateLimited");
-  }
-  rateLimitByRoomUser.set(key, { timestamps: [...recent, now] });
+function assertChatRateLimit(roomId: string, userId: string): void {
+  assertMutationRateLimit("chatMessage", `${roomId}:${userId}`, { errorCode: "dotsChatRateLimited" });
 }
 
 /** Persists a chat message and broadcasts it to the room. */
@@ -131,6 +120,7 @@ async function persistChatMessage(
   content: string
 ): Promise<DotsChatMessage> {
   const chat = await loadChatForRoom(roomId);
+  await assertChatMessageCap(chat.id);
   const row = await prisma.dotsChatMessage.create({
     data: { chatId: chat.id, senderKind, senderUserId, content },
     include: { senderUser: { select: { displayName: true } } }
@@ -225,7 +215,7 @@ export async function postChatMessage(roomId: string, userId: string, content: s
     throw new DotsApiError(400, "dotsChatMessageEmpty");
   }
   assertMessageLength(trimmed);
-  assertRateLimit(roomId, userId);
+  assertChatRateLimit(roomId, userId);
   const room = await loadRoom(roomId);
   const member = room.members.find((entry) => entry.userId === userId);
   if (!member) {

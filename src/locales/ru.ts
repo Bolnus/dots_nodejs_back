@@ -33,5 +33,8 @@ export const ru = {
   dotsNotInRoom: "Вы не состоите в этой комнате.",
   dotsChatMessageEmpty: "Сообщение не может быть пустым.",
   dotsChatMessageTooLong: "Сообщение слишком длинное (максимум {max} символов).",
-  dotsChatRateLimited: "Вы отправляете сообщения слишком часто. Подождите немного."
+  dotsChatRateLimited: "Вы отправляете сообщения слишком часто. Подождите немного.",
+  dotsRateLimited: "Слишком много запросов. Подождите немного.",
+  dotsMaxUsers: "Достигнут лимит пользователей на сервере ({max}).",
+  dotsChatMessageCap: "В этом чате достигнут лимит сообщений ({max})."
 } as const;

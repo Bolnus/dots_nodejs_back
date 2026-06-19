@@ -1,6 +1,7 @@
 import { DotsRoomStatus } from "@prisma/client";
 
 import { LLM_MAX_RETRIES } from "../../config.js";
+import { notifyAdmin } from "../../adminNotify/notifyAdmin.js";
 import { chatWithLlmTools } from "../../llm.js";
 import { postAiChatMessage } from "../chatService.js";
 import { commitAction } from "../commitService.js";
@@ -172,6 +173,17 @@ function buildPriorErrorsChatMessage(attempt: number, priorErrors: readonly stri
   return `${attemptLabel} Errors: ${priorErrors.at(-1)}`;
 }
 
+/** Notifies the admin when the AI exhausts all LLM retries and surrenders. */
+function notifyLlmExhausted(roomId: string, priorErrors: readonly string[]): void {
+  const lastError = priorErrors.at(-1) ?? "unknown error";
+  notifyAdmin({
+    category: "llm_exhausted",
+    title: "Dots: AI turn failed",
+    body: `Room ${roomId}\n${lastError.slice(0, 400)}`,
+    dedupeKey: `llm:${roomId}`
+  });
+}
+
 /** Runs the LLM retry loop and commits the chosen action. */
 async function runAiTurn(roomId: string): Promise<void> {
   try {
@@ -194,6 +206,7 @@ async function runAiTurn(roomId: string): Promise<void> {
       await safePostAiChatMessage(roomId, buildPriorErrorsChatMessage(attempt, priorErrors));
     }
 
+    notifyLlmExhausted(roomId, priorErrors);
     await surrenderAiIfStillItsTurn(roomId);
   } catch (error: unknown) {
     console.error("AI turn failed unexpectedly for room", roomId, error);

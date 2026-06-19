@@ -64,6 +64,8 @@ export const DATABASE_CONNECTION_STRING = required("DATABASE_URL");
 export const FRONTEND_URLS = getEnvFrontendUrls();
 export const DOTS_MAX_ACTIVE_ROOMS = optionalNumber("DOTS_MAX_ACTIVE_ROOMS", 30);
 export const DOTS_IDLE_USER_TTL_HOURS = optionalNumber("DOTS_IDLE_USER_TTL_HOURS", 24);
+export const DOTS_MAX_USERS = optionalNumber("DOTS_MAX_USERS", 500);
+export const DOTS_MAX_CHAT_MESSAGES_PER_ROOM = optionalNumber("DOTS_MAX_CHAT_MESSAGES_PER_ROOM", 10000);
 
 export const LLM_MODEL = required("LLM_MODEL");
 /** OpenAI-compatible base URL for chat completions (Ollama: `http://localhost:11434/v1`). */
@@ -79,4 +81,9 @@ export const LLM_OPTIONS = {
 /** Maximum LLM retry attempts per AI turn before the AI surrenders. */
 export const LLM_MAX_RETRIES = optionalNumber("LLM_MAX_RETRIES", 3);
 
-export const BARK_URL = required("BARK_URL");
+/** Bark device key for admin push notifications (not a full URL). */
+export const BARK_DEVICE_KEY = required("BARK_URL");
+/** Bark server base URL (no trailing slash). */
+export const BARK_SERVER_URL = stripTrailingSlashes(optionalString("BARK_SERVER_URL", "https://api.day.app"));
+/** Max non-crash admin Bark pushes per minute (dedupe still applies). */
+export const BARK_NOTIFY_MAX_PER_MINUTE = optionalNumber("BARK_NOTIFY_MAX_PER_MINUTE", 10);

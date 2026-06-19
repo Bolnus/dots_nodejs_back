@@ -39,6 +39,9 @@ export type DotsErrorCode = keyof Pick<
   | "dotsChatMessageEmpty"
   | "dotsChatMessageTooLong"
   | "dotsChatRateLimited"
+  | "dotsRateLimited"
+  | "dotsMaxUsers"
+  | "dotsChatMessageCap"
 >;
 
 export type DotsRoomStatus = "waiting" | "playing" | "finished";

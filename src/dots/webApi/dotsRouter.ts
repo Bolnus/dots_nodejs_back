@@ -1,5 +1,8 @@
 import { Router, type NextFunction, type Request as ExpressRequest, type Response as ExpressResponse } from "express";
 
+import { notifyAdmin } from "../../adminNotify/notifyAdmin.js";
+import { recordAuthFailure } from "../../rateLimit/authBurst.js";
+import { mutationRateLimit } from "../../rateLimit/mutationRateLimit.js";
 import { authenticateBearer } from "../auth.js";
 import { DotsApiError, sendDotsError } from "../errors.js";
 import type { DotsRequest } from "../wireTypes.js";
@@ -20,6 +23,8 @@ import { patchMe } from "./sessions/me/patchMe.js";
 import { postRegister } from "./sessions/register/postRegister.js";
 import { postHeartbeat } from "./sessions/heartbeat/postHeartbeat.js";
 
+// Mutational routes must register mutationRateLimit scopes — see .cursor/rules/backend-rate-limits-notify.mdc
+
 /** Parses the preferred locale from the Accept-Language header. */
 function languageFromRequest(req: ExpressRequest): string | undefined {
   const header = req.headers["accept-language"];
@@ -36,6 +41,7 @@ async function requireAuth(req: DotsRequest, res: ExpressResponse, next: NextFun
     const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
     const user = await authenticateBearer(token);
     if (!user) {
+      recordAuthFailure(req);
       sendDotsError(res, req.languageCode, new DotsApiError(401, "dotsUnauthorized"));
       return;
     }
@@ -44,6 +50,18 @@ async function requireAuth(req: DotsRequest, res: ExpressResponse, next: NextFun
   } catch (err) {
     next(err);
   }
+}
+
+/** Notifies the admin about an unexpected route handler failure. */
+function notifyInternalRouteError(req: DotsRequest, err: unknown): void {
+  const route = `${req.method} ${req.originalUrl}`;
+  const detail = err instanceof Error ? err.message : String(err);
+  notifyAdmin({
+    category: "internal_error",
+    title: "Dots: internal error",
+    body: `${route}\n${detail.slice(0, 500)}`,
+    dedupeKey: "internal"
+  });
 }
 
 /** Runs an async dots route handler with localized error responses. */
@@ -61,6 +79,7 @@ async function runDotsRoute(
       return;
     }
     console.error(err);
+    notifyInternalRouteError(req, err);
     sendDotsError(res, req.languageCode, new DotsApiError(500, "dotsInternal"));
   }
 }
@@ -76,21 +95,25 @@ export function createDotsRouter(): Router {
 
   router.post(
     "/sessions/register",
+    mutationRateLimit("register"),
     handleDotsRoute((req, res) => postRegister(req, res))
   );
   router.patch(
     "/sessions/me",
     requireAuth,
+    mutationRateLimit("patchMe"),
     handleDotsRoute((req, res) => patchMe(req, res))
   );
   router.delete(
     "/sessions/me",
     requireAuth,
+    mutationRateLimit("deleteMe"),
     handleDotsRoute((req, res) => deleteMe(req, res))
   );
   router.post(
     "/sessions/heartbeat",
     requireAuth,
+    mutationRateLimit("heartbeat"),
     handleDotsRoute((req, res) => postHeartbeat(req, res))
   );
 
@@ -101,6 +124,7 @@ export function createDotsRouter(): Router {
   router.post(
     "/rooms",
     requireAuth,
+    mutationRateLimit("roomCreate"),
     handleDotsRoute((req, res) => postRoom(req, res))
   );
   router.get(
@@ -110,31 +134,37 @@ export function createDotsRouter(): Router {
   router.patch(
     "/rooms/:roomId",
     requireAuth,
+    mutationRateLimit("patchRoom"),
     handleDotsRoute((req, res) => patchRoomById(req, res))
   );
   router.post(
     "/rooms/:roomId/join",
     requireAuth,
+    mutationRateLimit("join"),
     handleDotsRoute((req, res) => postJoin(req, res))
   );
   router.post(
     "/rooms/:roomId/leave",
     requireAuth,
+    mutationRateLimit("leave"),
     handleDotsRoute((req, res) => postLeave(req, res))
   );
   router.post(
     "/rooms/:roomId/start",
     requireAuth,
+    mutationRateLimit("start"),
     handleDotsRoute((req, res) => postStart(req, res))
   );
   router.post(
     "/rooms/:roomId/actions/commit",
     requireAuth,
+    mutationRateLimit("commit"),
     handleDotsRoute((req, res) => postCommit(req, res))
   );
   router.post(
     "/rooms/:roomId/ai",
     requireAuth,
+    mutationRateLimit("ai"),
     handleDotsRoute((req, res) => postAi(req, res))
   );
   router.get(
@@ -150,6 +180,7 @@ export function createDotsRouter(): Router {
   router.post(
     "/rooms/:roomId/chat/read",
     requireAuth,
+    mutationRateLimit("chatRead"),
     handleDotsRoute((req, res) => postRead(req, res))
   );
 
