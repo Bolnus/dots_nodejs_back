@@ -1,6 +1,6 @@
 import axios from "axios";
 
-import { BARK_DEVICE_KEY, BARK_SERVER_URL } from "../config.js";
+import { BARK_DEVICE_KEY, BARK_SERVER_URL, NODE_ENV } from "../config.js";
 import type { BarkLevel } from "./notifyTypes.js";
 
 const BARK_REQUEST_TIMEOUT_MS = 5000;
@@ -16,7 +16,7 @@ type BarkPushPayload = Readonly<{
 export async function sendBarkPush(payload: BarkPushPayload, timeoutMs = BARK_REQUEST_TIMEOUT_MS): Promise<void> {
   const body = {
     device_key: BARK_DEVICE_KEY,
-    title: payload.title,
+    title: `${payload.title} (${NODE_ENV})`,
     body: payload.body,
     group: payload.group ?? "dots-admin",
     level: payload.level ?? "active"

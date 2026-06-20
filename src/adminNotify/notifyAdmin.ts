@@ -1,6 +1,6 @@
 import { BARK_NOTIFY_MAX_PER_MINUTE } from "../config.js";
 import { sendBarkPush } from "./barkClient.js";
-import type { AdminNotifyEvent, NotifyCategory } from "./notifyTypes.js";
+import type { AdminNotifyEvent, BarkLevel, NotifyCategory } from "./notifyTypes.js";
 
 const GLOBAL_WINDOW_MS = 60_000;
 /** Longest category cooldown — used to prune stale dedupe map entries. */
@@ -69,19 +69,28 @@ function recordSend(event: AdminNotifyEvent, now: number): void {
   }
 }
 
+/** Builds the Bark push payload for an admin notify event. */
+function barkPayloadForEvent(event: AdminNotifyEvent): Readonly<{
+  title: string;
+  body: string;
+  level: BarkLevel;
+}> {
+  return {
+    title: event.title,
+    body: event.body,
+    level: event.level ?? (event.category === "crash" ? "timeSensitive" : "active")
+  };
+}
+
 /** Delivers a Bark push when not suppressed by dedupe or global caps. */
-async function deliverNotify(event: AdminNotifyEvent): Promise<void> {
+async function deliverNotify(event: AdminNotifyEvent, timeoutMs?: number): Promise<void> {
   const now = Date.now();
   if (shouldSuppress(event, now)) {
     return;
   }
 
   try {
-    await sendBarkPush({
-      title: event.title,
-      body: event.body,
-      level: event.level ?? (event.category === "crash" ? "timeSensitive" : "active")
-    });
+    await sendBarkPush(barkPayloadForEvent(event), timeoutMs);
     recordSend(event, now);
   } catch (error: unknown) {
     console.error("Admin Bark notification failed:", error);
@@ -95,22 +104,5 @@ export function notifyAdmin(event: AdminNotifyEvent): void {
 
 /** Sends an admin push notification and awaits delivery (for crash handlers). */
 export async function notifyAdminSync(event: AdminNotifyEvent, timeoutMs = 3000): Promise<void> {
-  const now = Date.now();
-  if (shouldSuppress(event, now)) {
-    return;
-  }
-
-  try {
-    await sendBarkPush(
-      {
-        title: event.title,
-        body: event.body,
-        level: event.level ?? (event.category === "crash" ? "timeSensitive" : "active")
-      },
-      timeoutMs
-    );
-    recordSend(event, now);
-  } catch (error: unknown) {
-    console.error("Admin Bark notification failed:", error);
-  }
+  await deliverNotify(event, timeoutMs);
 }

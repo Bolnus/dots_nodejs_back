@@ -60,6 +60,7 @@ function stripTrailingSlashes(value: string): string {
 
 export const EXPRESS_HOST = optionalString("EXPRESS_HOST", "0.0.0.0");
 export const EXPRESS_PORT = optionalNumber("EXPRESS_PORT", optionalNumber("PORT", 3030));
+export const NODE_ENV = optionalString("NODE_ENV", "development");
 export const DATABASE_CONNECTION_STRING = required("DATABASE_URL");
 export const FRONTEND_URLS = getEnvFrontendUrls();
 export const DOTS_MAX_ACTIVE_ROOMS = optionalNumber("DOTS_MAX_ACTIVE_ROOMS", 30);
