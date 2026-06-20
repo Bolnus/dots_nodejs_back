@@ -11,7 +11,7 @@ async function listRooms(): Promise<DotsRoomSummary[]> {
     orderBy: { createdAt: "desc" },
     ...roomWithMembers
   });
-  return rooms.map((room) => mapRoomToSummary(room));
+  return rooms.map((room) => mapRoomToSummary(room)).filter((summary): summary is DotsRoomSummary => summary !== null);
 }
 
 /** Lists all dots rooms. */

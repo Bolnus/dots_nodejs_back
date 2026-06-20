@@ -28,6 +28,16 @@ function toWireStatus(status: DotsRoomStatus): WireStatus {
   }
 }
 
+/** Resolves the room owner's display name from the owner relation or member list. */
+function resolveOwnerDisplayName(room: RoomWithMembers): string | null {
+  const ownerFromRelation = room.owner?.displayName;
+  if (ownerFromRelation) {
+    return ownerFromRelation;
+  }
+  const ownerMember = room.members.find((member) => member.user?.id === room.ownerUserId);
+  return ownerMember?.user?.displayName ?? null;
+}
+
 /** Maps a member role to a player slot, or null for viewers. */
 function roleToSlot(role: DotsRoomMemberRole): PlayerId | null {
   if (role === DotsRoomMemberRole.PLAYER0) {
@@ -44,6 +54,9 @@ export function mapRoomToDetail(room: RoomWithMembers): DotsRoomDetail {
   const players: DotsRoomPlayer[] = [];
   const viewers: DotsOnlineUser[] = [];
   for (const member of room.members) {
+    if (!member.user) {
+      continue;
+    }
     const slot = roleToSlot(member.role);
     const user = {
       userId: member.user.id,
@@ -80,11 +93,13 @@ export function mapRoomToDetail(room: RoomWithMembers): DotsRoomDetail {
   };
 }
 
-/** Maps a Prisma room row to the list summary shape. */
-export function mapRoomToSummary(room: RoomWithMembers): DotsRoomSummary {
+/** Maps a Prisma room row to the list summary shape, or null when the owner cannot be resolved. */
+export function mapRoomToSummary(room: RoomWithMembers): DotsRoomSummary | null {
+  const ownerName = resolveOwnerDisplayName(room);
+  if (!ownerName) {
+    return null;
+  }
   const detail = mapRoomToDetail(room);
-  const ownerName =
-    room.members.find((m) => m.user.id === room.ownerUserId)?.user.displayName ?? room.owner.displayName;
   return {
     id: detail.id,
     name: detail.name,
